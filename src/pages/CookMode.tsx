@@ -25,7 +25,7 @@ export default function CookMode() {
     let lock: WakeLockSentinel | null = null
     const request = async () => {
       try {
-        lock = await navigator.wakeLock?.request('screen')
+        lock = (await navigator.wakeLock?.request('screen')) ?? null
       } catch {
         // Not supported or not allowed; cooking still works.
       }

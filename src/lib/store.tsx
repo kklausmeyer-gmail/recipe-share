@@ -85,7 +85,7 @@ async function fetchAll<T>(table: string, columns = '*', order?: string): Promis
     if (order) q = q.order(order)
     const { data, error } = await q
     if (error) throw error
-    out.push(...((data ?? []) as T[]))
+    out.push(...((data ?? []) as unknown as T[]))
     if (!data || data.length < page) return out
   }
 }

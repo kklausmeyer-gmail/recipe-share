@@ -1,10 +1,11 @@
 import { BookOpen, CalendarDays, Plus, Settings, ShoppingCart } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { NavLink, Outlet } from 'react-router-dom'
 import { useAuth } from '../lib/store'
 
 export default function Layout() {
   const { isOwner } = useAuth()
-  const items = [
+  const items: { to: string; label: string; icon: LucideIcon; end?: boolean }[] = [
     { to: '/', label: 'Recipes', icon: BookOpen, end: true },
     { to: '/add', label: 'Add', icon: Plus },
     ...(isOwner
