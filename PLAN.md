@@ -20,7 +20,7 @@ Hosting costs nothing per month.
 |---|---|---|
 | Code | GitHub repo | - |
 | Website | GitHub Pages, deployed by a GitHub Action | Pages needs a **public** repo on a free account (see Open questions) |
-| Sign-in | Supabase Auth, email magic link, invite only (sign-up turned off) | 50k monthly users |
+| Sign-in | Supabase Auth, emailed link or code; a database trigger rejects emails not on the invite list | 50k monthly users |
 | Database | Supabase Postgres with row-level security | 500 MB |
 | Photos | Supabase Storage in a private bucket, served through signed URLs | 1 GB |
 | Link import | Supabase Edge Function that fetches a recipe URL and reads its schema.org JSON-LD | 500k calls per month |
@@ -115,6 +115,12 @@ by a GitHub Action. Node scripts in `scripts/` handle the import.
 7. Meal plan and suggestions
 8. PWA polish: icon and offline cache of recently viewed recipes
 
-## Open questions
+## Decisions (Sep 27)
 
-See the list in the chat reply. The decisions will be recorded here as they are made.
+- **Hosting:** the repo will be public and the site runs on GitHub Pages. All data sits behind Supabase sign-in and row-level security.
+- **Roles:** owners (the two of us) get everything, including the meal plan, grocery list and invites. Invited editors can add, edit, rate and log cooks.
+- **Ratings:** each person keeps their own. Cards show the average, and the recipe page shows each person's rating.
+- **Scale:** 254 album photos and about 25 links, well within the free tier.
+- **Photos:** mostly cookbook pages, often across several pages, with the dish photo on page 2. The import groups the pages and crops the dish photo out of its page to use as the cover.
+- **Grocery list:** combines the week's planned dinners into one list. AnyList has no public API, so the app offers Copy and Share, and the list pastes into AnyList one item per line.
+- **New photo recipes:** they go to a free "needs typing up" queue, which Claude Code transcribes (`npm run queue:pull` / `queue:push`).

@@ -1,0 +1,47 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    @apply bg-cream font-sans text-ink antialiased;
+  }
+  input:not([type='checkbox']):not([type='radio']):not([type='file']),
+  select,
+  textarea {
+    @apply w-full rounded-xl border border-line bg-white px-3 py-2 text-base outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20;
+  }
+  input[type='checkbox'] {
+    @apply h-4 w-4 accent-accent;
+  }
+}
+
+@layer components {
+  .field {
+    @apply flex flex-col gap-1.5;
+  }
+  .field > span:first-child {
+    @apply text-sm font-medium text-muted;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-full border border-line bg-white px-4 py-2 text-sm font-medium text-ink transition hover:border-accent/60 active:scale-[0.98] disabled:opacity-50;
+  }
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-full bg-accent px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-accent-dark active:scale-[0.98] disabled:opacity-50;
+  }
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-3 py-2 text-sm font-medium text-muted transition hover:bg-line/60 hover:text-ink;
+  }
+  .card {
+    @apply rounded-2xl bg-white p-4 shadow-sm ring-1 ring-line;
+  }
+  .page-title {
+    @apply font-serif text-3xl font-semibold tracking-tight;
+  }
+  .section-title {
+    @apply mb-3 font-serif text-xl font-semibold;
+  }
+}
