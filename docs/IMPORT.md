@@ -11,10 +11,11 @@ is committed: the folder is git-ignored, so photos never land in the public repo
    photos into `import/photos/`. The Google Photos API no longer lets apps read shared albums, so this
    step has to be done by hand.
 4. **iPhone photos are often HEIC.** Convert them to JPEG, because neither the scripts nor Claude can read HEIC.
-   On a Mac:
+   This works on Windows and Mac:
    ```sh
-   cd import/photos && mkdir -p ../heic && for f in *.HEIC *.heic; do [ -e "$f" ] && sips -s format jpeg "$f" --out "${f%.*}.jpg" >/dev/null && mv "$f" ../heic/; done
+   npm run import:heic
    ```
+   It moves the HEIC originals to `import/heic-originals/`.
 5. **Export the links doc.** In Google Docs, choose **File → Download → Web page (.html, zipped)**, then unzip it
    into `import/links/`. (A plain-text download works too if the doc shows the full URLs.)
 6. Start Claude Code in this folder and say:

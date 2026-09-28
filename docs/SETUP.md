@@ -87,6 +87,6 @@ Open the site in Safari, then tap **Share → Add to Home Screen**. Sign in with
 
 ```sh
 npm install
-cp .env.example .env.local   # then fill it in
+copy .env.example .env.local   # Windows (cp on Mac); then fill it in
 npm run dev                  # http://localhost:5173/recipe-share/
 ```
