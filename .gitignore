@@ -1,0 +1,9 @@
+node_modules
+dist
+.env.local
+.env.*.local
+*.log
+.DS_Store
+# Recipe photos and import working files never go in git (the repo is public)
+import/*
+!import/README.md
