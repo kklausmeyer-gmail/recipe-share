@@ -155,9 +155,34 @@ export async function uploadPhoto(
 }
 
 export async function deletePhoto(photo: Photo): Promise<void> {
-  await supabase.storage.from(BUCKET).remove([photo.path_lg, photo.path_sm])
   const { error } = await supabase.from('recipe_photos').delete().eq('id', photo.id)
   if (error) throw error
+  // Split recipes share photo files, so only remove the files once nothing uses them.
+  const { count } = await supabase
+    .from('recipe_photos')
+    .select('id', { count: 'exact', head: true })
+    .eq('path_lg', photo.path_lg)
+  if (count === 0) await supabase.storage.from(BUCKET).remove([photo.path_lg, photo.path_sm])
+}
+
+/** Adds existing photos to another recipe, sharing the same stored files. Returns old id → new id. */
+export async function copyPhotos(photos: Photo[], recipeId: string): Promise<Map<string, string>> {
+  const ids = new Map(photos.map((p) => [p.id, crypto.randomUUID()]))
+  if (!photos.length) return ids
+  const { error } = await supabase.from('recipe_photos').insert(
+    photos.map((p) => ({
+      id: ids.get(p.id),
+      recipe_id: recipeId,
+      kind: p.kind,
+      path_lg: p.path_lg,
+      path_sm: p.path_sm,
+      width: p.width,
+      height: p.height,
+      sort: p.sort,
+    })),
+  )
+  if (error) throw error
+  return ids
 }
 
 /** Downloads a web image through the Edge Function (browsers can't fetch other sites' images). */
