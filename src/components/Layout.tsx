@@ -1,12 +1,14 @@
 import { BookOpen, CalendarDays, Plus, Settings, ShoppingCart } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
-import { NavLink, Outlet } from 'react-router-dom'
+import { NavLink, Outlet, useLocation } from 'react-router-dom'
+import { gridHref } from './ScrollManager'
 import { useAuth } from '../lib/store'
 
 export default function Layout() {
   const { isOwner } = useAuth()
+  useLocation() // re-render on navigation so the Recipes tab keeps your last search
   const items: { to: string; label: string; icon: LucideIcon; end?: boolean }[] = [
-    { to: '/', label: 'Recipes', icon: BookOpen, end: true },
+    { to: gridHref(), label: 'Recipes', icon: BookOpen, end: true },
     { to: '/add', label: 'Add', icon: Plus },
     ...(isOwner
       ? [
@@ -21,7 +23,7 @@ export default function Layout() {
     <div className="min-h-dvh pb-[calc(4.5rem+env(safe-area-inset-bottom))] md:pb-0">
       <header className="sticky top-0 z-30 hidden border-b border-line bg-cream/90 backdrop-blur md:block">
         <div className="mx-auto flex max-w-6xl items-center gap-8 px-6 py-3">
-          <NavLink to="/" className="font-serif text-xl font-semibold text-accent">
+          <NavLink to={gridHref()} className="font-serif text-xl font-semibold text-accent">
             Recipe Box
           </NavLink>
           <nav className="flex gap-1">

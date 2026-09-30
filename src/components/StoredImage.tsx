@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { cachedUrl, signedUrl } from '../lib/photos'
 
 interface Props {
@@ -11,11 +11,12 @@ interface Props {
 /** An image from the private photo bucket. */
 export default function StoredImage({ path, alt, className = '', onClick }: Props) {
   const [url, setUrl] = useState<string | null>(() => (path ? cachedUrl(path) : null))
-  const [loaded, setLoaded] = useState(false)
+  // Which URL has finished loading. Keyed by URL (not a true/false flag) so a
+  // load event that arrives before or after a re-render can't leave it hidden.
+  const [loadedUrl, setLoadedUrl] = useState<string | null>(null)
 
   useEffect(() => {
     let live = true
-    setLoaded(false)
     if (!path) {
       setUrl(null)
       return
@@ -28,17 +29,24 @@ export default function StoredImage({ path, alt, className = '', onClick }: Prop
     }
   }, [path])
 
+  // Images already in the browser cache can finish before onLoad is attached.
+  const checkComplete = useCallback((img: HTMLImageElement | null) => {
+    if (img?.complete && img.naturalWidth > 0) setLoadedUrl(img.getAttribute('src'))
+  }, [])
+
   if (!path) return <Placeholder className={className} />
+  const visible = url != null && loadedUrl === url
   return (
     <div className={`relative overflow-hidden bg-line/60 ${className}`} onClick={onClick}>
       {url && (
         <img
+          ref={checkComplete}
           src={url}
           alt={alt}
           loading="lazy"
           decoding="async"
-          onLoad={() => setLoaded(true)}
-          className={`h-full w-full object-cover transition-opacity duration-300 ${loaded ? 'opacity-100' : 'opacity-0'}`}
+          onLoad={() => setLoadedUrl(url)}
+          className={`h-full w-full object-cover transition-opacity duration-300 ${visible ? 'opacity-100' : 'opacity-0'}`}
         />
       )}
     </div>
