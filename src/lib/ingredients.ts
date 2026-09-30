@@ -48,8 +48,11 @@ export interface ParsedIngredient {
   note: string | null
 }
 
-export const isHeader = (line: string) => line.startsWith('# ')
-export const headerText = (line: string) => line.replace(/^#\s*/, '')
+// A section heading starts with "#", with or without a space ("# Sauce" or "#Sauce").
+// "#10 can tomatoes" is an ingredient (a can size), not a heading.
+const HEADER_RE = /^\s*[#＃]+(?!\s*\d)\s*(?=\S)/
+export const isHeader = (line: string) => HEADER_RE.test(line)
+export const headerText = (line: string) => line.replace(HEADER_RE, '').trim()
 
 function parseNumber(s: string): number | null {
   s = s.trim()

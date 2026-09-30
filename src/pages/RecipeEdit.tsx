@@ -1,6 +1,7 @@
 import { ChevronLeft, Star, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useConfirm } from '../components/Confirm'
 import PhotoPicker from '../components/PhotoPicker'
 import RecipeForm from '../components/RecipeForm'
 import StoredImage from '../components/StoredImage'
@@ -20,6 +21,7 @@ export default function RecipeEdit() {
   const { id } = useParams()
   const navigate = useNavigate()
   const { recipeById, photosByRecipe, tags, refresh } = useData()
+  const confirm = useConfirm()
   const recipe = recipeById(id)
   const [files, setFiles] = useState<File[]>([])
   const [newKind, setNewKind] = useState<PhotoKind>('ours')
@@ -40,7 +42,7 @@ export default function RecipeEdit() {
   }
 
   async function remove(p: Photo) {
-    if (!confirm('Delete this photo?')) return
+    if (!(await confirm({ title: 'Delete this photo?' }))) return
     await deletePhoto(p)
     refresh()
   }
@@ -58,7 +60,12 @@ export default function RecipeEdit() {
   }
 
   async function deleteRecipe() {
-    if (!confirm(`Delete "${recipe!.title}" and all its photos and history? This can't be undone.`)) return
+    const ok = await confirm({
+      title: `Delete "${recipe!.title}"?`,
+      message: "This deletes the recipe with all its photos, notes and cooking history. It can't be undone.",
+      confirmLabel: 'Delete recipe',
+    })
+    if (!ok) return
     for (const p of photos) await deletePhoto(p)
     await supabase.from('recipes').delete().eq('id', recipe!.id)
     await refresh()

@@ -1,5 +1,7 @@
 import { HashRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { ConfirmProvider } from './components/Confirm'
 import Layout from './components/Layout'
+import ScrollManager from './components/ScrollManager'
 import Spinner from './components/Spinner'
 import { AuthProvider, DataProvider, useAuth, useData } from './lib/store'
 import { isConfigured } from './lib/supabase'
@@ -25,19 +27,22 @@ function Gate() {
   if (error) return <p className="p-6 text-red-700">Couldn't load recipes: {error}</p>
 
   return (
-    <Routes>
-      <Route path="/r/:id/cook" element={<CookMode />} />
-      <Route element={<Layout />}>
-        <Route index element={<Browse />} />
-        <Route path="/r/:id" element={<RecipeDetail />} />
-        <Route path="/r/:id/edit" element={<RecipeEdit />} />
-        <Route path="/add" element={<AddRecipe />} />
-        {isOwner && <Route path="/plan" element={<Plan />} />}
-        {isOwner && <Route path="/grocery" element={<Grocery />} />}
-        <Route path="/settings" element={<Settings />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Route>
-    </Routes>
+    <>
+      <ScrollManager />
+      <Routes>
+        <Route path="/r/:id/cook" element={<CookMode />} />
+        <Route element={<Layout />}>
+          <Route index element={<Browse />} />
+          <Route path="/r/:id" element={<RecipeDetail />} />
+          <Route path="/r/:id/edit" element={<RecipeEdit />} />
+          <Route path="/add" element={<AddRecipe />} />
+          {isOwner && <Route path="/plan" element={<Plan />} />}
+          {isOwner && <Route path="/grocery" element={<Grocery />} />}
+          <Route path="/settings" element={<Settings />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Route>
+      </Routes>
+    </>
   )
 }
 
@@ -46,9 +51,11 @@ export default function App() {
   return (
     <AuthProvider>
       <DataProvider>
-        <HashRouter>
-          <Gate />
-        </HashRouter>
+        <ConfirmProvider>
+          <HashRouter>
+            <Gate />
+          </HashRouter>
+        </ConfirmProvider>
       </DataProvider>
     </AuthProvider>
   )

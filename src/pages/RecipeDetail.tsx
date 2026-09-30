@@ -8,12 +8,13 @@ import {
   Minus,
   Pencil,
   Plus,
-  Trash2,
   Users,
   UtensilsCrossed,
 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useConfirm } from '../components/Confirm'
+import EditableNote from '../components/EditableNote'
 import Lightbox from '../components/Lightbox'
 import LogCookModal from '../components/LogCookModal'
 import Modal from '../components/Modal'
@@ -35,7 +36,9 @@ export default function RecipeDetail() {
   const recipe = recipeById(id)
   const photos = useMemo(() => photosByRecipe.get(id ?? '') ?? [], [photosByRecipe, id])
 
+  const confirm = useConfirm()
   const [notes, setNotes] = useState<Note[]>([])
+  const [actionError, setActionError] = useState<string | null>(null)
   const [newNote, setNewNote] = useState('')
   const [lightbox, setLightbox] = useState<{ photos: Photo[]; start: number } | null>(null)
   const [logging, setLogging] = useState(false)
@@ -86,15 +89,35 @@ export default function RecipeDetail() {
     setNewNote('')
   }
 
+  async function saveNote(n: Note, body: string) {
+    if (!body) return deleteNote(n)
+    const { error } = await supabase.from('recipe_notes').update({ body }).eq('id', n.id)
+    if (error) throw error
+    setNotes((list) => list.map((x) => (x.id === n.id ? { ...x, body } : x)))
+  }
+
   async function deleteNote(n: Note) {
-    if (!confirm('Delete this note?')) return
-    await supabase.from('recipe_notes').delete().eq('id', n.id)
-    setNotes(notes.filter((x) => x.id !== n.id))
+    if (!(await confirm({ title: 'Delete this note?', message: n.body }))) return
+    const { error } = await supabase.from('recipe_notes').delete().eq('id', n.id)
+    if (error) return setActionError(`Couldn't delete the note: ${error.message}`)
+    setNotes((list) => list.filter((x) => x.id !== n.id))
+  }
+
+  async function saveEntryNotes(entryId: string, text: string) {
+    const { error } = await supabase.from('cook_log').update({ notes: text || null }).eq('id', entryId)
+    if (error) throw error
+    await refresh()
   }
 
   async function deleteEntry(entryId: string) {
-    if (!confirm('Remove this entry from the cooking history?')) return
-    await supabase.from('cook_log').delete().eq('id', entryId)
+    const ok = await confirm({
+      title: 'Remove from cooking history?',
+      message: 'This removes this entry and its notes. Photos stay in the recipe.',
+      confirmLabel: 'Remove',
+    })
+    if (!ok) return
+    const { error } = await supabase.from('cook_log').delete().eq('id', entryId)
+    if (error) return setActionError(`Couldn't remove the entry: ${error.message}`)
     refresh()
   }
 
@@ -296,16 +319,17 @@ export default function RecipeDetail() {
         </div>
         <ul className="mt-3 space-y-2">
           {notes.map((n) => (
-            <li key={n.id} className="card flex items-start justify-between gap-3 !py-3">
-              <div>
-                <p>{n.body}</p>
+            <li key={n.id} className="card !py-3">
+              <EditableNote
+                text={n.body}
+                onSave={(body) => saveNote(n, body)}
+                onDelete={() => deleteNote(n)}
+                deleteLabel="Delete note"
+              >
                 <p className="mt-1 text-xs text-muted">
                   {nameOf(n.author)} · {formatDate(n.created_at.slice(0, 10))}
                 </p>
-              </div>
-              <button className="text-muted hover:text-red-700" onClick={() => deleteNote(n)} aria-label="Delete note">
-                <Trash2 size={16} />
-              </button>
+              </EditableNote>
             </li>
           ))}
         </ul>
@@ -332,18 +356,19 @@ export default function RecipeDetail() {
               const shots = photos.filter((p) => p.cook_log_id === c.id)
               return (
                 <li key={c.id} className="card !py-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
+                  <EditableNote
+                    text={c.notes}
+                    meta={
                       <p className="font-medium">
                         {formatDate(c.cooked_on, { weekday: 'short', month: 'short', day: 'numeric' })}
                         <span className="font-normal text-muted"> · {c.meal} · {nameOf(c.cooked_by)}</span>
                       </p>
-                      {c.notes && <p className="mt-1 text-sm">{c.notes}</p>}
-                    </div>
-                    <button className="text-muted hover:text-red-700" onClick={() => deleteEntry(c.id)} aria-label="Delete entry">
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
+                    }
+                    placeholder="What did you change? How did it turn out?"
+                    onSave={(text) => saveEntryNotes(c.id, text)}
+                    onDelete={() => deleteEntry(c.id)}
+                    deleteLabel="Remove entry"
+                  />
                   {shots.length > 0 && (
                     <div className="mt-2 flex gap-2">
                       {shots.map((p, i) => (
@@ -362,6 +387,14 @@ export default function RecipeDetail() {
         )}
       </section>
 
+      {actionError && (
+        <button
+          onClick={() => setActionError(null)}
+          className="fixed inset-x-4 bottom-[calc(5rem+env(safe-area-inset-bottom))] z-40 rounded-2xl bg-red-700 px-4 py-3 text-left text-sm text-white shadow-lg md:inset-x-auto md:right-6 md:max-w-sm"
+        >
+          {actionError} <span className="opacity-70">(tap to dismiss)</span>
+        </button>
+      )}
       {lightbox && <Lightbox photos={lightbox.photos} start={lightbox.start} onClose={() => setLightbox(null)} />}
       {logging && <LogCookModal recipe={recipe} onClose={() => setLogging(false)} />}
       {planning && <PlanItModal recipeId={recipe.id} onClose={() => setPlanning(false)} />}
