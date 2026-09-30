@@ -1,9 +1,10 @@
-import { ChevronLeft, Star, Trash2 } from 'lucide-react'
+import { ChevronLeft, Split, Star, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useConfirm } from '../components/Confirm'
 import PhotoPicker from '../components/PhotoPicker'
 import RecipeForm from '../components/RecipeForm'
+import SplitRecipeModal from '../components/SplitRecipeModal'
 import StoredImage from '../components/StoredImage'
 import { coverPhoto, deletePhoto, uploadPhoto } from '../lib/photos'
 import { saveRecipe } from '../lib/recipes'
@@ -26,6 +27,7 @@ export default function RecipeEdit() {
   const [files, setFiles] = useState<File[]>([])
   const [newKind, setNewKind] = useState<PhotoKind>('ours')
   const [busy, setBusy] = useState(false)
+  const [splitting, setSplitting] = useState(false)
 
   if (!recipe) return <p className="py-20 text-center text-muted">Recipe not found.</p>
   const photos = [...(photosByRecipe.get(recipe.id) ?? [])].sort((a, b) => a.kind.localeCompare(b.kind) || a.sort - b.sort)
@@ -59,6 +61,11 @@ export default function RecipeEdit() {
     }
   }
 
+  async function removeRecipe() {
+    for (const p of photos) await deletePhoto(p)
+    await supabase.from('recipes').delete().eq('id', recipe!.id)
+  }
+
   async function deleteRecipe() {
     const ok = await confirm({
       title: `Delete "${recipe!.title}"?`,
@@ -66,10 +73,22 @@ export default function RecipeEdit() {
       confirmLabel: 'Delete recipe',
     })
     if (!ok) return
-    for (const p of photos) await deletePhoto(p)
-    await supabase.from('recipes').delete().eq('id', recipe!.id)
+    await removeRecipe()
     await refresh()
     navigate('/')
+  }
+
+  async function afterSplit(newIds: string[]) {
+    setSplitting(false)
+    const original = recipe!.title
+    const ok = await confirm({
+      title: `Created ${newIds.length} recipes. Delete the original?`,
+      message: `"${original}" is no longer needed. Deleting it also deletes its notes and cooking history. Its photos stay with the new recipes.`,
+      confirmLabel: 'Delete original',
+    })
+    if (ok) await removeRecipe()
+    await refresh()
+    navigate(`/?q=${encodeURIComponent(original)}`)
   }
 
   return (
@@ -139,11 +158,17 @@ export default function RecipeEdit() {
         }}
       />
 
-      <div className="border-t border-line pt-6">
+      <div className="flex flex-wrap gap-2 border-t border-line pt-6">
+        <button className="btn" onClick={() => setSplitting(true)}>
+          <Split size={16} /> Split into separate recipes
+        </button>
         <button className="btn !border-red-200 !text-red-700" onClick={deleteRecipe}>
           <Trash2 size={16} /> Delete recipe
         </button>
       </div>
+      {splitting && (
+        <SplitRecipeModal recipe={recipe} photos={photos} onClose={() => setSplitting(false)} onDone={afterSplit} />
+      )}
     </div>
   )
 }
