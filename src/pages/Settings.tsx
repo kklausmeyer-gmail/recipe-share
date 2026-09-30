@@ -1,5 +1,6 @@
 import { LogOut, Trash2, UserPlus } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
+import { useConfirm } from '../components/Confirm'
 import { useAuth, useData } from '../lib/store'
 import { supabase } from '../lib/supabase'
 import type { Member, Role } from '../lib/types'
@@ -7,6 +8,7 @@ import type { Member, Role } from '../lib/types'
 export default function Settings() {
   const { member, isOwner, signOut } = useAuth()
   const { members, tags, recipes, refresh } = useData()
+  const confirm = useConfirm()
   const [email, setEmail] = useState('')
   const [name, setName] = useState('')
   const [role, setRole] = useState<Role>('editor')
@@ -32,7 +34,12 @@ export default function Settings() {
   }
 
   async function removeMember(m: Member) {
-    if (!confirm(`Remove ${m.display_name}? They won't be able to open the recipe box anymore.`)) return
+    const ok = await confirm({
+      title: `Remove ${m.display_name}?`,
+      message: "They won't be able to open the recipe box anymore.",
+      confirmLabel: 'Remove',
+    })
+    if (!ok) return
     await supabase.from('members').delete().eq('email', m.email)
     refresh()
   }
@@ -48,7 +55,11 @@ export default function Settings() {
 
   async function removeTag(name: string) {
     const used = recipes.filter((r) => r.tags.includes(name)).length
-    if (!confirm(used ? `"${name}" is on ${used} recipes. Remove it from the tag list? (Recipes keep it.)` : `Delete "${name}"?`)) return
+    const ok = await confirm({
+      title: `Delete the "${name}" tag?`,
+      message: used ? `It's on ${used} recipes. They keep it, but it leaves the tag list.` : undefined,
+    })
+    if (!ok) return
     await supabase.from('tags').delete().eq('name', name)
     refresh()
   }

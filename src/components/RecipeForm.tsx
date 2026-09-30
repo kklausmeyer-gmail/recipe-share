@@ -119,11 +119,11 @@ export default function RecipeForm({ initial, submitLabel, onSubmit, children }:
         </label>
       </div>
       <label className="field">
-        <span>Ingredients, one per line. Start a line with "# " for a section (e.g. "# Sauce").</span>
+        <span>Ingredients, one per line. Start a line with # for a section heading (e.g. #Sauce).</span>
         <textarea rows={10} value={ingredients} onChange={(e) => setIngredients(e.target.value)} className="font-mono text-sm" />
       </label>
       <label className="field">
-        <span>Steps, one per line</span>
+        <span>Steps, one per line. # works for headings here too.</span>
         <textarea rows={10} value={steps} onChange={(e) => setSteps(e.target.value)} />
       </label>
 
