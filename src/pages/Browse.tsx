@@ -16,6 +16,9 @@ const SORTS = {
 } as const
 type SortKey = keyof typeof SORTS
 
+/** Shown first among the quick filter chips, whatever group it's in. */
+const PINNED_TAG = 'want to try'
+
 const norm = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
 
 export default function Browse() {
@@ -88,7 +91,10 @@ export default function Browse() {
     return tags.filter((t) => used.has(t.name))
   }, [recipes, tags])
   const groups = [...new Set(usedTags.map((t) => t.grp))]
-  const quickTags = usedTags.filter((t) => t.grp === 'meal' || t.grp === 'diet')
+  const quickTags = [
+    ...usedTags.filter((t) => t.name === PINNED_TAG),
+    ...usedTags.filter((t) => t.name !== PINNED_TAG && (t.grp === 'meal' || t.grp === 'diet')),
+  ]
 
   const toggleTag = (name: string) =>
     update((p) => {

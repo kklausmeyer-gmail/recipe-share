@@ -14,6 +14,11 @@
   textarea {
     @apply w-full rounded-xl border border-line bg-white px-3 py-2 text-base outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20;
   }
+  /* iOS gives date inputs a fixed intrinsic width that overflows narrow grid columns. */
+  input[type='date'] {
+    @apply min-w-0 max-w-full;
+    min-height: 2.75rem;
+  }
   input[type='checkbox'] {
     @apply h-4 w-4 accent-accent;
   }
