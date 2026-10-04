@@ -64,12 +64,12 @@ export default function LogCookModal({ recipe, onClose, defaultDate, onLogged }:
     <Modal title="We made this!" onClose={onClose}>
       <div className="space-y-4">
         <p className="font-serif text-lg leading-tight">{recipe.title}</p>
-        <div className="grid grid-cols-2 gap-3">
-          <label className="field">
+        <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-3">
+          <label className="field min-w-0">
             <span>Date</span>
             <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
           </label>
-          <label className="field">
+          <label className="field min-w-0">
             <span>Meal</span>
             <select value={meal} onChange={(e) => setMeal(e.target.value)}>
               {['breakfast', 'lunch', 'dinner', 'snack', 'dessert', 'party'].map((m) => (
