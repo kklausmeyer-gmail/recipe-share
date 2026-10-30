@@ -129,10 +129,16 @@ export default function Grocery() {
               </button>
             )}
           </div>
-          <p className="-mt-3 text-sm text-muted">
-            To send it to AnyList, copy the list, open your AnyList list, and paste it into the add-item box. AnyList adds each line as
-            its own item and sorts it into aisles.
-          </p>
+          <div className="space-y-2 text-sm text-muted">
+            <p>In AnyList, use its pasteboard import to add each ingredient as a separate item:</p>
+            <ol className="list-decimal space-y-1 pl-5">
+              <li>Copy the items above, then open your shopping list in AnyList.</li>
+              <li>Tap the <b>Add Item</b> field, then tap AnyList’s <b>pasteboard button</b>.</li>
+              <li>Tap <b>Paste</b>, then <b>Done</b> to add the separate items.</li>
+            </ol>
+            <p>Pasting directly into the Add Item field can combine everything into one item.</p>
+            <a className="text-accent underline" href="https://help.anylist.com/articles/paste-items/" target="_blank" rel="noreferrer">See AnyList’s illustrated instructions</a>
+          </div>
 
           <section>
             <p className="mb-2 text-sm text-muted">Tap anything you already have.</p>
