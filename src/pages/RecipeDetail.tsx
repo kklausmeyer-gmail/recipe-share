@@ -405,18 +405,22 @@ export default function RecipeDetail() {
 function PlanItModal({ recipeId, onClose }: { recipeId: string; onClose: () => void }) {
   const days = Array.from({ length: 14 }, (_, i) => addDays(today(), i))
   const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
   const navigate = useNavigate()
 
   async function pick(date: string) {
     setSaving(true)
-    await supabase.from('meal_plan').delete().eq('plan_date', date).eq('meal', 'dinner').eq('status', 'suggested')
-    await supabase.from('meal_plan').insert({ plan_date: date, meal: 'dinner', recipe_id: recipeId, status: 'planned' })
+    setError('')
+    const { error } = await supabase.from('meal_plan').insert({ plan_date: date, meal: 'dinner', recipe_id: recipeId, status: 'planned' })
+    if (error) { setError(error.message); setSaving(false); return }
     onClose()
     navigate('/plan')
   }
 
   return (
     <Modal title="Plan it for dinner on…" onClose={onClose}>
+      <p className="mb-3 text-sm text-muted">Adds this dish alongside any meals already planned for that day.</p>
+      {error && <p role="alert" className="mb-3 text-sm text-red-700">{error}</p>}
       <div className="grid grid-cols-2 gap-2">
         {days.map((d, i) => (
           <button key={d} className="btn justify-start" disabled={saving} onClick={() => pick(d)}>

@@ -1,6 +1,7 @@
 import { LogOut, Trash2, UserPlus } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { useConfirm } from '../components/Confirm'
+import PasswordSettings from '../components/PasswordSettings'
 import { useAuth, useData } from '../lib/store'
 import { supabase } from '../lib/supabase'
 import type { Member, Role } from '../lib/types'
@@ -81,6 +82,8 @@ export default function Settings() {
           <LogOut size={16} /> Sign out
         </button>
       </section>
+
+      <PasswordSettings email={member?.email ?? ''} />
 
       <section>
         <h2 className="section-title">People</h2>
@@ -173,10 +176,15 @@ export default function Settings() {
 
       <section className="card space-y-2 text-sm">
         <h2 className="font-serif text-lg font-semibold">Put it on your iPhone home screen</h2>
-        <p className="text-muted">
-          In Safari, tap the Share button, then <b>Add to Home Screen</b>. It opens full-screen like an app. The first time you open it
-          from the home screen, sign in with the <b>code</b> from the email (the link opens in Safari instead).
-        </p>
+        <p className="text-muted">On your iPhone, open the <a className="text-accent underline" href="https://kklausmeyer-gmail.github.io/recipe-share/">live recipe site</a> in Safari.</p>
+        <ol className="list-decimal space-y-1 pl-5 text-muted">
+          <li>Tap Share (the square with an upward arrow). It may be inside Safari’s menu.</li>
+          <li>Choose <b>Add to Home Screen</b>. If missing, use <b>Edit Actions</b> to add it.</li>
+          <li>Turn on <b>Open as Web App</b> if shown, then tap <b>Add</b>.</li>
+          <li>Set a password in Settings, then open the Recipes icon and sign in with your <b>email and password</b>.</li>
+        </ol>
+        <p className="text-muted">Use the live HTTPS address, rather than the local preview on your computer. Internet access is required to load your private recipes and meal plan. Installing the icon keeps the same account permissions.</p>
+        <a className="inline-block text-accent underline" href="https://support.apple.com/guide/iphone/iphea86e5236/ios" target="_blank" rel="noreferrer">Apple’s installation instructions</a>
       </section>
     </div>
   )

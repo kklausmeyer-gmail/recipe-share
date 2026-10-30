@@ -82,4 +82,17 @@ export interface PlanEntry {
   status: 'suggested' | 'planned' | 'cooked' | 'skipped'
 }
 
+export interface CalendarEvent {
+  id: string
+  title: string
+  start_date: string
+  recurrence: 'none' | 'weekly'
+  end_date: string | null
+  start_time: string | null
+  end_time: string | null
+  notes: string | null
+}
+
+export type CalendarEventInput = Omit<CalendarEvent, 'id'>
+
 export type RecipeInput = Omit<Recipe, 'id' | 'created_by' | 'created_at' | 'updated_at' | 'hero_photo_id'>

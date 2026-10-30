@@ -86,9 +86,17 @@ export default function Grocery() {
         </p>
       </div>
 
+      {entries.some((e) => !e.recipe_id && e.label) && (
+        <section className="card space-y-2">
+          <h2 className="font-medium">Dinners without recipes</h2>
+          <p className="text-sm text-muted">These meals have no ingredient list. Add their groceries separately.</p>
+          {entries.filter((e) => !e.recipe_id && e.label).map((e) => <p key={e.id} className="text-sm">{formatDate(e.plan_date)}: {e.label}</p>)}
+        </section>
+      )}
+
       {planned.length === 0 ? (
         <p className="text-muted">
-          Nothing planned for these days yet. <Link to="/plan" className="text-accent underline">Plan some dinners</Link> first.
+          No recipes selected for the grocery list. <Link to="/plan" className="text-accent underline">Choose recipes</Link> to build one automatically.
         </p>
       ) : (
         <>
