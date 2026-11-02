@@ -6,10 +6,11 @@ import LogCookModal from '../components/LogCookModal'
 import Modal from '../components/Modal'
 import StoredImage from '../components/StoredImage'
 import TagChip from '../components/TagChip'
-import { eventsOn, suggestionDates, visiblePlanDays } from '../lib/calendar'
+import { eventsOn, shouldExpandNextWeek, suggestionDates, visiblePlanDays } from '../lib/calendar'
 import { addDays, formatDate, today, weekStart } from '../lib/dates'
 import { familiarDinners } from '../lib/meal-history'
 import { coverPhoto } from '../lib/photos'
+import { RerollHistory } from '../lib/reroll-history'
 import { useData } from '../lib/store'
 import { suggestMeals } from '../lib/suggest'
 import { supabase } from '../lib/supabase'
@@ -33,15 +34,19 @@ export default function Plan() {
   const [events, setEvents] = useState<CalendarEvent[]>([])
   const [eventsError, setEventsError] = useState('')
   const [eventEditor, setEventEditor] = useState<CalendarEvent | null | undefined>(undefined)
+  const [eventDate, setEventDate] = useState<string | undefined>(undefined)
+  const rerollHistory = useRef(new RerollHistory())
   const [manageEvents, setManageEvents] = useState(false)
   const [loading, setLoading] = useState(true)
   const [loadedStart, setLoadedStart] = useState('')
   const loadSequence = useRef(0)
 
-  const days = useMemo(() => visiblePlanDays(start, expanded), [start, expanded])
+  const now = today()
+  const autoExpand = shouldExpandNextWeek(start, now)
+  const showNextWeek = expanded || autoExpand
+  const days = useMemo(() => visiblePlanDays(start, showNextWeek), [start, showNextWeek])
   const end = days[days.length - 1]
   const queryEnd = addDays(start, 13)
-  const now = today()
 
   const load = useCallback(async () => {
     const sequence = ++loadSequence.current
@@ -104,12 +109,15 @@ export default function Plan() {
         ? [replaceDate]
         : suggestionDates(days, visibleEntries, cookLog.filter((c) => c.meal === 'dinner').map((c) => c.cooked_on), now)
       const exclude = keep.flatMap((e) => (e.recipe_id ? [e.recipe_id] : []))
+      const previous = replaceDate ? rerollHistory.current.get(replaceDate) : undefined
+      if (previous) exclude.push(...previous.recipes)
       if (replaceDate) {
         const current = replaceEntry?.recipe_id
         if (current) exclude.push(current)
       }
       const familiarRows: { plan_date: string; meal: string; label: string; status: string }[] = []
       const used = new Set(keep.flatMap((e) => e.label ? [e.label.toLowerCase()] : []))
+      previous?.labels.forEach((label) => used.add(label))
       // A familiar dinner is deterministic, so explicitly exclude the suggestion being replaced.
       if (replaceEntry?.label) used.add(replaceEntry.label.toLowerCase())
       if (useFamiliar && !requiredTags.length) {
@@ -134,7 +142,7 @@ export default function Plan() {
       })
       const rows = [...familiarRows, ...picks.map((recipe_id, i) => ({ plan_date: recipeDays[i], meal: 'dinner', recipe_id, status: 'suggested' }))]
       if (replaceEntry && !rows.length) {
-        setError('No different dinner matches these filters right now. Try changing the filters or choose a dish with Edit.')
+        setError('You’ve seen all available dinners matching these filters. Change the filters or choose a dish with Edit.')
         return
       }
       const replacedDays = rows.map((row) => row.plan_date)
@@ -146,6 +154,9 @@ export default function Plan() {
         if (toReplace.length) {
           const { error } = await supabase.from('meal_plan').delete().in('id', toReplace)
           if (error) throw error
+        }
+        if (replaceEntry && replaceDate) {
+          rerollHistory.current.remember(replaceDate, [replaceEntry, ...rows])
         }
       }
       await load()
@@ -249,7 +260,7 @@ export default function Plan() {
       )}
 
       <div className="flex flex-wrap gap-2">
-        <button className="btn" onClick={() => setEventEditor(null)}>Add calendar event</button>
+        <button className="btn" onClick={() => { setEventDate(undefined); setEventEditor(null) }}>Add calendar event</button>
         <button className="btn" onClick={() => setManageEvents(true)}>Manage events</button>
       </div>
       {eventsError && <p role="alert" className="card text-red-700">{eventsError} <button className="underline" onClick={() => void loadEvents().catch(() => {})}>Retry</button></p>}
@@ -285,7 +296,7 @@ export default function Plan() {
                   return <div key={entry.id} className="flex min-w-0 flex-col items-stretch gap-2">
                     {recipe ? <DayRecipe recipe={recipe} suggested={entry.status === 'suggested'} note={entry.status === 'suggested' ? 'Suggestion' : entry.status === 'cooked' ? 'Made it' : undefined} />
                       : <button className="min-w-0 flex-1 text-left" onClick={() => { setEditingEntry(entry); setPicking(d) }}>
-                        <p className={`truncate font-medium ${entry.status === 'suggested' ? 'text-purple-700' : ''}`}>{entry.label ?? 'Dinner'}</p>
+                        <p className={`whitespace-pre-wrap break-words font-medium ${entry.status === 'suggested' ? 'text-purple-700' : ''}`}>{entry.label ?? 'Dinner'}</p>
                         <p className="text-xs text-muted">{entry.status === 'suggested' ? 'Suggestion from past plans' : d <= now ? 'Made it' : 'Planned'}</p>
                       </button>}
                     <div className="flex flex-wrap items-center gap-1">
@@ -309,6 +320,7 @@ export default function Plan() {
                   <Plus size={16} /> {dayEntries.length || made.length ? 'Add dish or notes' : 'Add dinner or notes'}
                 </button>
                 {dayEntries.filter((entry) => entry.status !== 'cooked').length > 1 && <button className="btn-ghost text-sm" disabled={busy} onClick={() => setMoving(dayEntries.filter((entry) => entry.status !== 'cooked'))}>Move whole dinner…</button>}
+                <button className="btn-ghost !px-0 text-sm" onClick={() => { setEventDate(d); setEventEditor(null) }}><Plus size={16} /> Add calendar event</button>
               </div>
               </div>
               </div>
@@ -317,14 +329,14 @@ export default function Plan() {
         })}
       </ul>
 
-      <button className="btn w-full justify-between" disabled={busy} aria-expanded={expanded} aria-controls="plan-days" onClick={() => setExpanded((value) => !value)}>
-        <span>{expanded ? 'Hide next week' : `Show next week · ${formatDate(addDays(start, 7))}–${formatDate(queryEnd)}`}</span>
-        <span aria-hidden="true">{expanded ? '−' : '+'}</span>
+      <button className="btn w-full justify-between" disabled={busy || autoExpand} aria-expanded={showNextWeek} aria-controls="plan-days" onClick={() => setExpanded((value) => !value)}>
+        <span>{autoExpand ? 'Next week is shown from Wednesday onward' : showNextWeek ? 'Hide next week' : `Show next week · ${formatDate(addDays(start, 7))}–${formatDate(queryEnd)}`}</span>
+        <span aria-hidden="true">{showNextWeek ? '−' : '+'}</span>
       </button>
-      {expanded && <p className="text-sm text-muted">Suggest dinners fills unplanned days across both visible weeks.</p>}
+      {showNextWeek && <p className="text-sm text-muted">Suggest dinners fills unplanned days across both visible weeks.</p>}
 
-      {manageEvents && <ManageEvents events={events} onClose={() => setManageEvents(false)} onAdd={() => { setManageEvents(false); setEventEditor(null) }} onEdit={(event) => { setManageEvents(false); setEventEditor(event) }} />}
-      {eventEditor !== undefined && <EventEditor key={eventEditor?.id ?? 'new'} event={eventEditor} onSaved={loadEvents} onClose={() => setEventEditor(undefined)} />}
+      {manageEvents && <ManageEvents events={events} onClose={() => setManageEvents(false)} onAdd={() => { setManageEvents(false); setEventDate(undefined); setEventEditor(null) }} onEdit={(event) => { setManageEvents(false); setEventEditor(event) }} />}
+      {eventEditor !== undefined && <EventEditor key={eventEditor?.id ?? eventDate ?? 'new'} event={eventEditor} defaultDate={eventDate} onSaved={loadEvents} onClose={() => setEventEditor(undefined)} />}
 
       <PrivateHistory entries={history} onWeek={(date) => setStart(weekStart(date))} />
       <History />
@@ -378,7 +390,7 @@ function DayRecipe({ recipe, note, suggested = false }: { recipe: Recipe; note?:
     <Link to={`/r/${recipe.id}`} className="flex min-w-0 flex-1 items-center gap-3">
       <StoredImage path={cover?.path_sm} alt="" className="h-14 w-14 shrink-0 rounded-xl" />
       <div className="min-w-0">
-        <p className={`truncate font-medium leading-snug ${suggested ? 'text-purple-700' : ''}`}>{recipe.title}</p>
+        <p className={`whitespace-normal break-words font-medium leading-snug ${suggested ? 'text-purple-700' : ''}`}>{recipe.title}</p>
         {note && <p className="text-xs text-muted">{note}</p>}
       </div>
     </Link>

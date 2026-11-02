@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { eventOccursOn, eventsOn, eventTimeLabel, suggestionDates, validateCalendarEvent, visiblePlanDays } from '../src/lib/calendar.ts'
+import { defaultEventEndTime, eventOccursOn, eventsOn, eventTimeLabel, shouldExpandNextWeek, suggestionDates, validateCalendarEvent, visiblePlanDays } from '../src/lib/calendar.ts'
 import type { CalendarEvent, CalendarEventInput, PlanEntry } from '../src/lib/types.ts'
 
 const event: CalendarEventInput = {
@@ -44,3 +44,13 @@ const entries: PlanEntry[] = [
 assert.deepEqual(suggestionDates(collapsed, entries, ['2026-11-01'], '2026-10-30'), ['2026-10-30'])
 assert.deepEqual(suggestionDates(expanded, entries, ['2026-11-01'], '2026-10-30'), ['2026-10-30', '2026-11-02', '2026-11-05', '2026-11-06', '2026-11-07', '2026-11-08'])
 console.log('Calendar recurrence and visible-day suggestion checks passed')
+assert.equal(shouldExpandNextWeek('2026-10-26', '2026-10-27'), false)
+assert.equal(shouldExpandNextWeek('2026-10-26', '2026-10-28'), true)
+assert.equal(shouldExpandNextWeek('2026-10-26', '2026-11-01'), true)
+assert.equal(shouldExpandNextWeek('2026-11-02', '2026-11-01'), false)
+assert.equal(defaultEventEndTime('17:30'), '18:30')
+assert.equal(defaultEventEndTime('11:45'), '12:45')
+assert.equal(defaultEventEndTime('22:30'), '23:30')
+assert.equal(defaultEventEndTime(null), null)
+assert.equal(defaultEventEndTime('23:15'), null)
+console.log('Automatic week expansion and event end-time defaults passed')

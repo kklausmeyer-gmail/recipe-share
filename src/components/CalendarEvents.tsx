@@ -1,6 +1,6 @@
 import { CalendarDays, Pencil } from 'lucide-react'
 import { useState } from 'react'
-import { eventTimeLabel, validateCalendarEvent } from '../lib/calendar'
+import { defaultEventEndTime, eventTimeLabel, validateCalendarEvent } from '../lib/calendar'
 import { formatDate, today } from '../lib/dates'
 import { supabase } from '../lib/supabase'
 import type { CalendarEvent, CalendarEventInput } from '../lib/types'
@@ -35,11 +35,12 @@ export function ManageEvents({ events, onEdit, onAdd, onClose }: { events: Calen
   </Modal>
 }
 
-export function EventEditor({ event, onSaved, onClose }: { event: CalendarEvent | null; onSaved: () => Promise<void>; onClose: () => void }) {
+export function EventEditor({ event, defaultDate, onSaved, onClose }: { event: CalendarEvent | null; defaultDate?: string; onSaved: () => Promise<void>; onClose: () => void }) {
   const [form, setForm] = useState<CalendarEventInput>(() => event ? {
     title: event.title, start_date: event.start_date, recurrence: event.recurrence, end_date: event.end_date,
     start_time: event.start_time?.slice(0, 5) ?? null, end_time: event.end_time?.slice(0, 5) ?? null, notes: event.notes,
-  } : { title: '', start_date: today(), recurrence: 'weekly', end_date: null, start_time: null, end_time: null, notes: null })
+  } : { title: '', start_date: defaultDate ?? today(), recurrence: 'weekly', end_date: null, start_time: null, end_time: null, notes: null })
+  const [endTimeEdited, setEndTimeEdited] = useState(!!event)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -91,10 +92,15 @@ export function EventEditor({ event, onSaved, onClose }: { event: CalendarEvent 
         </select></label>
         <label className="block text-sm">End date <span className="text-muted">(optional, includes this day)</span><input className="mt-1 w-full" type="date" min={form.start_date} value={form.end_date ?? ''} onInput={(e) => update('end_date', e.currentTarget.value || null)} /></label>
         <div className="grid grid-cols-2 gap-3">
-          <label className="block text-sm">Start time<input className="mt-1 w-full" type="time" value={form.start_time ?? ''} onInput={(e) => update('start_time', e.currentTarget.value || null)} /></label>
-          <label className="block text-sm">End time<input className="mt-1 w-full" type="time" value={form.end_time ?? ''} onInput={(e) => update('end_time', e.currentTarget.value || null)} /></label>
+          <label className="block text-sm">Start time<input className="mt-1 w-full" type="time" value={form.start_time ?? ''} onInput={(e) => {
+            const start = e.currentTarget.value || null
+            setForm((f) => ({ ...f, start_time: start, ...(!endTimeEdited ? { end_time: defaultEventEndTime(start) } : {}) }))
+            setError('')
+          }} /></label>
+          <label className="block text-sm">End time<input className="mt-1 w-full" type="time" value={form.end_time ?? ''} onInput={(e) => { setEndTimeEdited(true); update('end_time', e.currentTarget.value || null) }} /></label>
         </div>
         <p className="text-xs text-muted">Times stay at the entered local time each week. Leave both empty for an all-day event.</p>
+        {form.start_time && form.start_time >= '23:00' && !form.end_time && <p className="text-xs text-muted">Choose an end time before midnight; overnight events are not supported.</p>}
         <label className="block text-sm">Notes<textarea className="mt-1 w-full" rows={3} maxLength={5000} value={form.notes ?? ''} onChange={(e) => update('notes', e.target.value || null)} /></label>
       </fieldset>
       {error && <p role="alert" className="text-sm text-red-700">{error}</p>}

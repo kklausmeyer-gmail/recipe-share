@@ -1,4 +1,4 @@
-import { addDays, parseISODate } from './dates'
+import { addDays, parseISODate, weekStart } from './dates'
 import type { CalendarEvent, CalendarEventInput, PlanEntry } from './types'
 
 export function eventOccursOn(event: CalendarEventInput, date: string): boolean {
@@ -33,6 +33,18 @@ export function validateCalendarEvent(event: CalendarEventInput): string | null 
 
 export function visiblePlanDays(start: string, expanded: boolean): string[] {
   return Array.from({ length: expanded ? 14 : 7 }, (_, i) => addDays(start, i))
+}
+
+export function shouldExpandNextWeek(start: string, now: string): boolean {
+  return start === weekStart(now) && now >= addDays(start, 2)
+}
+
+export function defaultEventEndTime(start: string | null): string | null {
+  if (!start) return null
+  const [hours, minutes] = start.split(':').map(Number)
+  // Events currently end on the same day; don't silently wrap into an invalid range.
+  if (hours >= 23) return null
+  return `${String(hours + 1).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`
 }
 
 export function suggestionDates(days: string[], entries: PlanEntry[], cookedDates: string[], now: string): string[] {
