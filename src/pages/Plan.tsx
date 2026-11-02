@@ -282,18 +282,18 @@ export default function Plan() {
               <div className="space-y-3">
                 {dayEntries.map((entry) => {
                   const recipe = recipeById(entry.recipe_id ?? undefined)
-                  return <div key={entry.id} className="flex flex-wrap items-center gap-2">
+                  return <div key={entry.id} className="flex min-w-0 flex-col items-stretch gap-2">
                     {recipe ? <DayRecipe recipe={recipe} suggested={entry.status === 'suggested'} note={entry.status === 'suggested' ? 'Suggestion' : entry.status === 'cooked' ? 'Made it' : undefined} />
                       : <button className="min-w-0 flex-1 text-left" onClick={() => { setEditingEntry(entry); setPicking(d) }}>
-                        <p className={`whitespace-pre-wrap font-medium ${entry.status === 'suggested' ? 'text-purple-700' : ''}`}>{entry.label ?? 'Dinner'}</p>
-                        <p className="text-xs text-muted">{entry.status === 'suggested' ? 'Suggestion from past plans' : entry.status === 'cooked' ? 'Made it' : 'Planned'}</p>
+                        <p className={`truncate font-medium ${entry.status === 'suggested' ? 'text-purple-700' : ''}`}>{entry.label ?? 'Dinner'}</p>
+                        <p className="text-xs text-muted">{entry.status === 'suggested' ? 'Suggestion from past plans' : d <= now ? 'Made it' : 'Planned'}</p>
                       </button>}
-                    <div className="flex shrink-0 gap-1">
+                    <div className="flex flex-wrap items-center gap-1">
                       {entry.status === 'suggested' && <>
                         <button className="btn !p-2" aria-label="Keep dish" disabled={busy} onClick={() => setStatus(entry, 'planned')}><Check size={16} /></button>
                         <button className="btn !p-2" aria-label="Suggest another dish" disabled={busy} onClick={() => suggest(entry)}><RefreshCw size={16} /></button>
                       </>}
-                      {entry.status === 'planned' && d <= now && <button className="btn !px-2 text-xs" onClick={() => recipe ? setLogging(entry) : setStatus(entry, 'cooked')}>Made it</button>}
+                      {recipe && entry.status === 'planned' && d <= now && <button className="btn !px-2 text-xs" onClick={() => setLogging(entry)}>Made it</button>}
                       <button className="btn-ghost !p-2" aria-label="Edit dish" disabled={busy} onClick={() => { setEditingEntry(entry); setPicking(d) }}>Edit</button>
                       {entry.status !== 'cooked' && <button className="btn-ghost !p-2" aria-label="Move dish to another day" disabled={busy} onClick={() => setMoving([entry])}>Move</button>}
                       <button className="btn-ghost !p-2" aria-label="Remove dish" disabled={busy} onClick={() => remove(entry)}><Trash2 size={16} /></button>
@@ -378,7 +378,7 @@ function DayRecipe({ recipe, note, suggested = false }: { recipe: Recipe; note?:
     <Link to={`/r/${recipe.id}`} className="flex min-w-0 flex-1 items-center gap-3">
       <StoredImage path={cover?.path_sm} alt="" className="h-14 w-14 shrink-0 rounded-xl" />
       <div className="min-w-0">
-        <p className={`line-clamp-2 font-medium leading-snug ${suggested ? 'text-purple-700' : ''}`}>{recipe.title}</p>
+        <p className={`truncate font-medium leading-snug ${suggested ? 'text-purple-700' : ''}`}>{recipe.title}</p>
         {note && <p className="text-xs text-muted">{note}</p>}
       </div>
     </Link>
