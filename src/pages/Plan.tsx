@@ -24,6 +24,7 @@ export default function Plan() {
   const [editingEntry, setEditingEntry] = useState<PlanEntry | null>(null)
   const [picking, setPicking] = useState<string | null>(null)
   const [logging, setLogging] = useState<PlanEntry | null>(null)
+  const [moving, setMoving] = useState<PlanEntry[] | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [history, setHistory] = useState<PlanEntry[]>([])
@@ -109,6 +110,8 @@ export default function Plan() {
       }
       const familiarRows: { plan_date: string; meal: string; label: string; status: string }[] = []
       const used = new Set(keep.flatMap((e) => e.label ? [e.label.toLowerCase()] : []))
+      // A familiar dinner is deterministic, so explicitly exclude the suggestion being replaced.
+      if (replaceEntry?.label) used.add(replaceEntry.label.toLowerCase())
       if (useFamiliar && !requiredTags.length) {
         for (const date of openDays) {
           const usual = familiarDinners(history, date).find((m) => m.weekdayCount >= 2 && !used.has(m.label.toLowerCase()) && m.last < addDays(now, -6))
@@ -130,6 +133,10 @@ export default function Plan() {
         adventure,
       })
       const rows = [...familiarRows, ...picks.map((recipe_id, i) => ({ plan_date: recipeDays[i], meal: 'dinner', recipe_id, status: 'suggested' }))]
+      if (replaceEntry && !rows.length) {
+        setError('No different dinner matches these filters right now. Try changing the filters or choose a dish with Edit.')
+        return
+      }
       const replacedDays = rows.map((row) => row.plan_date)
       const toReplace = visibleEntries.filter((e) => e.status === 'suggested' && replacedDays.includes(e.plan_date) && (!replaceEntry || e.id === replaceEntry.id)).map((e) => e.id)
       // Save replacements before deleting previous suggestions, so a failed save keeps the plan.
@@ -168,6 +175,15 @@ export default function Plan() {
     setPicking(null)
     setEditingEntry(null)
     await load()
+  }
+
+  async function moveDinner(date: string) {
+    if (!moving?.length) return
+    const { error } = await supabase.from('meal_plan').update({ plan_date: date }).in('id', moving.map((entry) => entry.id))
+    if (error) throw error
+    setMoving(null)
+    if (weekStart(date) === start) await load()
+    else setStart(weekStart(date))
   }
 
   const suggestedCount = entries.filter((e) => days.includes(e.plan_date) && e.status === 'suggested').length
@@ -267,9 +283,9 @@ export default function Plan() {
                 {dayEntries.map((entry) => {
                   const recipe = recipeById(entry.recipe_id ?? undefined)
                   return <div key={entry.id} className="flex flex-wrap items-center gap-2">
-                    {recipe ? <DayRecipe recipe={recipe} note={entry.status === 'suggested' ? 'Suggestion' : entry.status === 'cooked' ? 'Made it' : undefined} />
+                    {recipe ? <DayRecipe recipe={recipe} suggested={entry.status === 'suggested'} note={entry.status === 'suggested' ? 'Suggestion' : entry.status === 'cooked' ? 'Made it' : undefined} />
                       : <button className="min-w-0 flex-1 text-left" onClick={() => { setEditingEntry(entry); setPicking(d) }}>
-                        <p className="whitespace-pre-wrap font-medium">{entry.label ?? 'Dinner'}</p>
+                        <p className={`whitespace-pre-wrap font-medium ${entry.status === 'suggested' ? 'text-purple-700' : ''}`}>{entry.label ?? 'Dinner'}</p>
                         <p className="text-xs text-muted">{entry.status === 'suggested' ? 'Suggestion from past plans' : entry.status === 'cooked' ? 'Made it' : 'Planned'}</p>
                       </button>}
                     <div className="flex shrink-0 gap-1">
@@ -279,6 +295,7 @@ export default function Plan() {
                       </>}
                       {entry.status === 'planned' && d <= now && <button className="btn !px-2 text-xs" onClick={() => recipe ? setLogging(entry) : setStatus(entry, 'cooked')}>Made it</button>}
                       <button className="btn-ghost !p-2" aria-label="Edit dish" disabled={busy} onClick={() => { setEditingEntry(entry); setPicking(d) }}>Edit</button>
+                      {entry.status !== 'cooked' && <button className="btn-ghost !p-2" aria-label="Move dish to another day" disabled={busy} onClick={() => setMoving([entry])}>Move</button>}
                       <button className="btn-ghost !p-2" aria-label="Remove dish" disabled={busy} onClick={() => remove(entry)}><Trash2 size={16} /></button>
                     </div>
                   </div>
@@ -291,6 +308,7 @@ export default function Plan() {
                 <button className="btn-ghost !px-0 text-sm" disabled={loading || loadedStart !== start || busy} onClick={() => { setEditingEntry(null); setPicking(d) }}>
                   <Plus size={16} /> {dayEntries.length || made.length ? 'Add dish or notes' : 'Add dinner or notes'}
                 </button>
+                {dayEntries.filter((entry) => entry.status !== 'cooked').length > 1 && <button className="btn-ghost text-sm" disabled={busy} onClick={() => setMoving(dayEntries.filter((entry) => entry.status !== 'cooked'))}>Move whole dinner…</button>}
               </div>
               </div>
               </div>
@@ -312,6 +330,7 @@ export default function Plan() {
       <History />
 
       {picking && <PickRecipe date={picking} history={history} initialLabel={editingEntry?.label ?? ''} onLabel={(label) => pick(picking, undefined, label)} onPick={(r) => pick(picking, r)} onClose={() => { setPicking(null); setEditingEntry(null) }} />}
+      {moving && <MoveDinner entries={moving} titleOf={(entry) => recipeById(entry.recipe_id ?? undefined)?.title ?? entry.label ?? 'Dinner'} onMove={moveDinner} onClose={() => setMoving(null)} />}
       {logging && recipeById(logging.recipe_id ?? undefined) && (
         <LogCookModal
           recipe={recipeById(logging.recipe_id ?? undefined)!}
@@ -324,14 +343,42 @@ export default function Plan() {
   )
 }
 
-function DayRecipe({ recipe, note }: { recipe: Recipe; note?: string }) {
+function MoveDinner({ entries, titleOf, onMove, onClose }: {
+  entries: PlanEntry[]
+  titleOf: (entry: PlanEntry) => string
+  onMove: (date: string) => Promise<void>
+  onClose: () => void
+}) {
+  const [date, setDate] = useState(entries[0].plan_date)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+  return <Modal title={entries.length > 1 ? 'Move whole dinner' : 'Move dish'} onClose={() => { if (!saving) onClose() }}>
+    <form className="space-y-4" onSubmit={async (event) => {
+      event.preventDefault()
+      if (!date || date === entries[0].plan_date || saving) return
+      setSaving(true)
+      setError('')
+      try { await onMove(date) }
+      catch (error) { setError((error as Error).message); setSaving(false) }
+    }}>
+      <p className="text-sm text-muted">Moving from {formatDate(entries[0].plan_date, { weekday: 'long', month: 'short', day: 'numeric' })}:</p>
+      <ul className="list-disc space-y-1 pl-5">{entries.map((entry) => <li key={entry.id}>{titleOf(entry)}</li>)}</ul>
+      <label className="field"><span>New dinner date</span><input className="compact-date" type="date" required disabled={saving} value={date} onChange={(event) => setDate(event.target.value)} /></label>
+      <p className="text-sm text-muted">Choose any date, including another week. These dishes and notes will join any dinner already planned there.</p>
+      {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
+      <button className="btn-primary w-full" disabled={saving || !date || date === entries[0].plan_date}>{saving ? 'Moving…' : 'Move to this date'}</button>
+    </form>
+  </Modal>
+}
+
+function DayRecipe({ recipe, note, suggested = false }: { recipe: Recipe; note?: string; suggested?: boolean }) {
   const { photosByRecipe } = useData()
   const cover = coverPhoto(recipe, photosByRecipe.get(recipe.id) ?? [])
   return (
     <Link to={`/r/${recipe.id}`} className="flex min-w-0 flex-1 items-center gap-3">
       <StoredImage path={cover?.path_sm} alt="" className="h-14 w-14 shrink-0 rounded-xl" />
       <div className="min-w-0">
-        <p className="line-clamp-2 font-medium leading-snug">{recipe.title}</p>
+        <p className={`line-clamp-2 font-medium leading-snug ${suggested ? 'text-purple-700' : ''}`}>{recipe.title}</p>
         {note && <p className="text-xs text-muted">{note}</p>}
       </div>
     </Link>
@@ -406,7 +453,7 @@ function PickRecipe({ date, history, initialLabel, onLabel, onPick, onClose }: {
   return (
     <Modal title={`Dinner & notes for ${formatDate(date, { weekday: 'long', month: 'short', day: 'numeric' })}`} onClose={onClose}>
       <form className="space-y-3 mb-5" onSubmit={(e) => { e.preventDefault(); if (label.trim()) onLabel(label) }}>
-        <label className="block text-sm">Dinner or day notes<textarea autoFocus className="mt-1 w-full" value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Chicken thighs and broccoli; late practice, so keep dinner quick" maxLength={1000} /></label>
+        <label className="field"><span>Dinner or day notes</span><textarea rows={3} className="block w-full resize-y !leading-6" value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Chicken thighs and broccoli; late practice, so keep dinner quick" maxLength={1000} /></label>
         <p className="text-xs text-muted">Add a meal without a recipe, notes about the day, or both. You can also add recipes below.</p>
         <button className="btn-primary" disabled={!label.trim()}>Save dinner or notes</button>
       </form>

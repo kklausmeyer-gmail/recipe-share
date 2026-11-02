@@ -20,7 +20,7 @@ export default function RecipeCard({ recipe }: { recipe: Recipe }) {
         <StoredImage path={cover?.path_sm} alt={recipe.title} className="aspect-[4/3] w-full" />
         {recipe.status === 'needs_transcription' && (
           <span className="absolute left-2 top-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
-            Needs typing up
+            Awaiting import
           </span>
         )}
       </div>

@@ -129,7 +129,11 @@ npm run import:upload                  # uploads; safe to re-run, skips finished
 
 Before uploading, every photo should be used by a recipe or listed in `import/skipped.txt`.
 
-## Later: recipes added in the app as photos
+## Later: recipes added in the app as photos or queued URLs
+
+If importing a URL fails (including HTTP 403), or returns an incomplete recipe, the app saves the link as an awaiting-import recipe. It confirms when the link has been saved; a queue-save failure is shown separately. Existing recipes with the same URL are reused.
+
+The same `queue:pull` command below checks both photos and URLs. It retries queued URLs from this computer, saves complete recipe data to `recipe.json`, and records each attempt in `retry.json`. Review successful imports and their tags before running `queue:push`. Failed URLs remain queued, and their source URL is saved in `recipe.json` for manual research/transcription. If a site still blocks access, do not mark the recipe ready without its ingredients and steps. Completed local transcriptions are preserved on subsequent pulls. Previously failed URLs from before this feature must be submitted again to be queued.
 
 When someone adds a recipe in the app with **From photos**, it's saved as "Needs typing up". To transcribe the queue:
 

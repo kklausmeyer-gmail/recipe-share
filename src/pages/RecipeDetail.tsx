@@ -222,7 +222,9 @@ export default function RecipeDetail() {
 
       {recipe.status === 'needs_transcription' && (
         <div className="mt-6 rounded-2xl bg-amber-50 p-4 text-sm text-amber-900 ring-1 ring-amber-200">
-          This recipe is saved as photos only and is waiting to be typed up. You can read the original pages below, or type it in
+          {recipe.source_type === 'link'
+            ? 'This link is queued for import. We’ll retry it the next time the import queue runs. You can also type it in'
+            : 'This recipe is saved as photos only and is waiting to be typed up. You can read the original pages below, or type it in'}
           yourself with <Link to={`/r/${recipe.id}/edit`} className="underline">Edit</Link>.
         </div>
       )}

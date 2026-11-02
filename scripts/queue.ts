@@ -6,6 +6,7 @@
 
 import { existsSync, readdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { retryLink } from './retry-link.ts'
 import { admin, ensureDir, ensureTags, QUEUE_DIR, recipeRow, uploadImage, validate, writeJson, type RecipeFile } from './lib.ts'
 
 const db = admin()
@@ -18,7 +19,8 @@ if (cmd === 'pull') {
   for (const r of recipes ?? []) {
     const dir = join(QUEUE_DIR, r.id)
     ensureDir(dir)
-    const { data: photos } = await db.from('recipe_photos').select('*').eq('recipe_id', r.id).eq('kind', 'page').order('sort')
+    const { data: photos, error: photoError } = await db.from('recipe_photos').select('*').eq('recipe_id', r.id).eq('kind', 'page').order('sort')
+    if (photoError) throw photoError
     const pages: string[] = []
     for (const [i, p] of (photos ?? []).entries()) {
       const name = `page-${i + 1}.jpg`
@@ -35,7 +37,8 @@ if (cmd === 'pull') {
         ingredients: r.ingredients,
         steps: r.steps,
         tags: r.tags,
-        source_type: 'photo',
+        source_type: r.source_type,
+        source_url: r.source_url,
         source_book: r.source_book,
         source_page: r.source_page,
         pages,
@@ -43,6 +46,23 @@ if (cmd === 'pull') {
         notes: [],
       }
       writeJson(join(dir, 'recipe.json'), stub)
+    }
+    if (r.source_type === 'link' && r.source_url) {
+      const file = join(dir, 'recipe.json')
+      const local = JSON.parse(readFileSync(file, 'utf8')) as RecipeFile
+      // Keep human-completed work; retry incomplete URL imports on every pull.
+      if (!local.ingredients.length || !local.steps.length) {
+        try {
+          const draft = await retryLink(r.source_url)
+          writeJson(file, { ...local, ...draft, source_type: 'link', source_url: r.source_url, tags: local.tags ?? [] })
+          writeJson(join(dir, 'retry.json'), { url: r.source_url, attempted_at: new Date().toISOString(), error: null })
+          console.log(`✓ ${draft.title}: URL retrieved; review recipe.json, then run queue:push`)
+        } catch (error) {
+          const message = (error as Error).message
+          writeJson(join(dir, 'retry.json'), { url: r.source_url, attempted_at: new Date().toISOString(), error: message })
+          console.log(`… ${r.source_url}: ${message}; still queued for another attempt or manual import`)
+        }
+      }
     }
     console.log(`↓ ${r.title}: ${pages.length} pages → import/queue/${r.id}/`)
   }

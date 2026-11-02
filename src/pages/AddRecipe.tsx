@@ -49,6 +49,8 @@ function FromLink() {
   const [error, setError] = useState<string | null>(null)
   const [draft, setDraft] = useState<Draft | null>(null)
   const [imageUrl, setImageUrl] = useState<string | null>(null)
+  const [queuedId, setQueuedId] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
 
   const existing = recipes.find((r) => r.source_url && url && r.source_url.replace(/\/$/, '') === url.trim().replace(/\/$/, ''))
 
@@ -56,9 +58,13 @@ function FromLink() {
     e.preventDefault()
     setBusy(true)
     setError(null)
+    setNotice(null)
+    setDraft(null)
+    setImageUrl(null)
+    setQueuedId(null)
+    const submittedUrl = url.trim()
     const { data, error } = await supabase.functions.invoke('import-url', { body: { url: url.trim(), mode: 'recipe' } })
-    setBusy(false)
-    if (error || !data || data.error) {
+    if (error || !data || data.error || !data.ingredients?.length || !data.steps?.length) {
       let msg = data?.error ?? error?.message ?? 'Something went wrong'
       try {
         const body = await (error as { context?: Response })?.context?.json()
@@ -66,10 +72,32 @@ function FromLink() {
       } catch {
         // keep the generic message
       }
-      setError(`${msg}. You can still type it in below.`)
-      setDraft({ ...emptyDraft(), source_type: 'link', source_url: url.trim() })
+      if (!error && !data?.error) msg = 'The page did not provide a complete recipe'
+      try {
+        const saved = existing ?? await saveRecipe({
+          ...emptyDraft(),
+          title: `Recipe from ${new URL(submittedUrl).hostname}`,
+          source_type: 'link',
+          source_url: submittedUrl,
+          status: 'needs_transcription',
+        }, tags)
+        if (saved.status === 'needs_transcription') {
+          setQueuedId(saved.id)
+          setNotice('Link saved to the import queue. We’ll try it again the next time you check for new recipes. You can also type it in below.')
+          setDraft({ ...emptyDraft(), source_type: 'link', source_url: submittedUrl })
+        } else {
+          setNotice('This link is already saved in your recipes.')
+        }
+        await refresh()
+      } catch (queueError) {
+        setError(`${msg}. Could not save the link to the queue: ${(queueError as Error).message}. Please try again.`)
+      } finally {
+        setBusy(false)
+      }
       return
     }
+    setBusy(false)
+    setQueuedId(existing?.status === 'needs_transcription' ? existing.id : null)
     const known = new Set(tags.map((t) => t.name))
     setImageUrl(data.image_urls?.[0] ?? null)
     setDraft({
@@ -93,7 +121,7 @@ function FromLink() {
       <form onSubmit={fetchIt} className="card space-y-3">
         <label className="field">
           <span>Paste a link to a recipe</span>
-          <input type="url" required value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://…" />
+          <input type="url" required disabled={busy} value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://…" />
         </label>
         {existing && (
           <p className="text-sm text-amber-800">
@@ -104,6 +132,7 @@ function FromLink() {
           {busy ? 'Reading the page…' : 'Get recipe'}
         </button>
         {error && <p className="text-sm text-red-700">{error}</p>}
+        {notice && <p role="status" className="text-sm text-amber-800">{notice} {queuedId && <Link to={`/r/${queuedId}`} className="underline">View queued recipe</Link>}</p>}
       </form>
 
       {draft && (
@@ -114,7 +143,7 @@ function FromLink() {
             initial={draft}
             submitLabel="Save recipe"
             onSubmit={async (d) => {
-              const saved = await saveRecipe(d, tags)
+              const saved = await saveRecipe(d, tags, queuedId ?? undefined)
               if (imageUrl) {
                 try {
                   const photo = await uploadPhoto(saved.id, await fetchRemoteImage(imageUrl), 'source')

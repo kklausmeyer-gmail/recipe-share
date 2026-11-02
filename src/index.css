@@ -22,6 +22,23 @@
   input[type='checkbox'] {
     @apply h-4 w-4 accent-accent;
   }
+  .compact-date {
+    appearance: none;
+    -webkit-appearance: none;
+    box-sizing: border-box;
+    width: 100%;
+    overflow: hidden;
+  }
+  .compact-date::-webkit-date-and-time-value {
+    min-width: 0;
+    text-align: left;
+  }
+  textarea {
+    display: block;
+    line-height: 1.5;
+    text-align: left;
+    white-space: pre-wrap;
+  }
 }
 
 @layer components {

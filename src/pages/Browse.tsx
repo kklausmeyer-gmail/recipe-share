@@ -195,7 +195,7 @@ export default function Browse() {
               />
               {queueCount > 0 && (
                 <TagChip
-                  name={`Needs typing up (${queueCount})`}
+                  name={`Awaiting import (${queueCount})`}
                   active={only === 'queue'}
                   onClick={() => update((p) => (only === 'queue' ? p.delete('only') : p.set('only', 'queue')))}
                 />
