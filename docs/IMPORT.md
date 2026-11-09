@@ -131,6 +131,16 @@ Before uploading, every photo should be used by a recipe or listed in `import/sk
 
 ## Later: recipes added in the app as photos or queued URLs
 
+### Finish a blocked URL import in the app
+
+Use **Add a recipe → Paste text**, or **Paste recipe text instead** under the link importer.
+Copy the recipe title, ingredients, and instructions from the website. Include an **Ingredients**
+heading and an **Instructions**, **Directions**, or **Method** heading. Add the original URL if desired.
+The app prepares an editable draft locally; review quantities and steps before saving. If that URL
+is already queued, saving completes the queued recipe. Pasted text stays visible during review.
+Notes and nutrition sections are not included in the draft; copy any wanted notes into the editor.
+No external extraction service or account is needed.
+
 If importing a URL fails (including HTTP 403), or returns an incomplete recipe, the app saves the link as an awaiting-import recipe. It confirms when the link has been saved; a queue-save failure is shown separately. Existing recipes with the same URL are reused.
 
 The same `queue:pull` command below checks both photos and URLs. It retries queued URLs from this computer, saves complete recipe data to `recipe.json`, and records each attempt in `retry.json`. Review successful imports and their tags before running `queue:push`. Failed URLs remain queued, and their source URL is saved in `recipe.json` for manual research/transcription. If a site still blocks access, do not mark the recipe ready without its ingredients and steps. Completed local transcriptions are preserved on subsequent pulls. Previously failed URLs from before this feature must be submitted again to be queued.

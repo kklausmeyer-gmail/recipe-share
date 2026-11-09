@@ -112,6 +112,7 @@ export const useData = () => useContext(DataContext)
 export function DataProvider({ children }: { children: ReactNode }) {
   const { session } = useAuth()
   const myId = session?.user.id
+  const accessToken = session?.access_token
   const [loaded, setLoaded] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [recipes, setRecipes] = useState<Recipe[]>([])
@@ -146,8 +147,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }, [])
 
   useEffect(() => {
-    if (myId) refresh()
-  }, [myId, refresh])
+    // A phone waking up can renew its session without changing the signed-in user.
+    // Reload with that token so an earlier load error does not remain stuck onscreen.
+    if (myId && accessToken) void refresh()
+  }, [myId, accessToken, refresh])
 
   const photosByRecipe = useMemo(() => {
     const map = new Map<string, Photo[]>()

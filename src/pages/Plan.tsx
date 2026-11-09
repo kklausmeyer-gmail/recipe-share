@@ -474,7 +474,8 @@ function PickRecipe({ date, history, initialLabel, onLabel, onPick, onClose }: {
         {familiarDinners(history, date).slice(0, 8).map((m) => <button key={m.label} className="btn w-full justify-between text-left" onClick={() => onLabel(m.label)}><span>{m.label}</span><span className="text-xs text-muted">{m.weekdayCount ? `${m.weekdayCount} on this weekday` : `${m.count} past plans`}</span></button>)}
       </div>
       <input aria-label="Search recipes" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search recipes" />
-      <ul className="mt-3 divide-y divide-line">
+      <ul className="mt-3 h-64 overflow-y-auto overscroll-contain divide-y divide-line" aria-label="Matching recipes">
+        {!list.length && <li className="py-4 text-sm text-muted" role="status">No recipes found. Try another search, or save dinner or notes above.</li>}
         {list.map((r) => (
           <li key={r.id}>
             <button className="flex w-full items-center gap-3 py-2.5 text-left hover:text-accent" onClick={() => onPick(r)}>
