@@ -90,3 +90,17 @@ npm install
 copy .env.example .env.local   # Windows (cp on Mac); then fill it in
 npm run dev                  # http://localhost:5173/recipe-share/
 ```
+
+## Use-up ingredients for meal planning
+
+For an existing installation, run `supabase/migrations/0004_plan_use_up.sql` in the
+Supabase SQL Editor before deploying the updated app. This adds the shared,
+owner-only weekly ingredient list. Apply this migration after the earlier migrations
+for a new installation as well.
+
+On the Plan screen, add ingredient names individually under **Use up this week**.
+Dinner suggestions prioritize recipes matching the remaining ingredients while
+respecting diet filters and the usual dinner eligibility rules. A kept or manually
+added recipe crosses off matching ingredients for its scheduled week; removing,
+replacing, or moving it out of the week restores them. Crossing off means planned,
+not necessarily that all of the ingredient has been eaten. Each week has its own list.

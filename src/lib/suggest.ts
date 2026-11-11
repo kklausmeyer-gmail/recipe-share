@@ -1,3 +1,4 @@
+import { usesIngredient } from './use-up'
 import { daysBetween } from './dates'
 import type { Recipe, Tag } from './types'
 
@@ -17,6 +18,8 @@ export interface SuggestOptions {
   today: string
   count: number
   requiredTags: string[]
+  /** Ingredient names to prioritize in suggestions. */
+  useUp?: string[]
   /** 0 = mostly favorites, 1 = mostly recipes we've never made. */
   adventure: number
 }
@@ -73,6 +76,13 @@ export function suggestMeals(o: SuggestOptions): string[] {
       const r = pool.find((x) => x.id === id)!
       const repeats = varietyTags(r).reduce((n, t) => n + (usedVariety.get(t) ?? 0), 0)
       weighted.push([id, score * Math.pow(0.45, repeats)])
+    }
+    // Prefer the most uncovered use-up ingredients, then use the usual scoring.
+    const remaining = (o.useUp ?? []).filter((item) => !chosen.some((id) => usesIngredient(pool.find((r) => r.id === id)!.ingredients, item)))
+    const matches = (id: string) => remaining.filter((item) => usesIngredient(pool.find((r) => r.id === id)!.ingredients, item)).length
+    const best = Math.max(0, ...weighted.map(([id]) => matches(id)))
+    if (best) {
+      for (let j = weighted.length - 1; j >= 0; j--) if (matches(weighted[j][0]) < best) weighted.splice(j, 1)
     }
     const total = weighted.reduce((n, [, w]) => n + w, 0)
     if (!total) break

@@ -14,6 +14,7 @@ import { RerollHistory } from '../lib/reroll-history'
 import { useData } from '../lib/store'
 import { suggestMeals } from '../lib/suggest'
 import { supabase } from '../lib/supabase'
+import { usesIngredient } from '../lib/use-up'
 import type { CalendarEvent, PlanEntry, Recipe } from '../lib/types'
 
 export default function Plan() {
@@ -40,6 +41,13 @@ export default function Plan() {
   const [loading, setLoading] = useState(true)
   const [loadedStart, setLoadedStart] = useState('')
   const loadSequence = useRef(0)
+
+  const [useUp, setUseUp] = useState<{ id: string; week_start: string; ingredient: string }[]>([])
+  const [ingredient, setIngredient] = useState('')
+  const [useUpError, setUseUpError] = useState('')
+  const [useUpLoading, setUseUpLoading] = useState(true)
+  const [savingIngredient, setSavingIngredient] = useState(false)
+  const [scrollToday, setScrollToday] = useState(false)
 
   const now = today()
   const autoExpand = shouldExpandNextWeek(start, now)
@@ -94,6 +102,49 @@ export default function Plan() {
     return () => { active = false }
   }, [now, entries])
 
+  useEffect(() => {
+    let active = true
+    setUseUpLoading(true)
+    setUseUp([])
+    setUseUpError('')
+    supabase.from('plan_use_up').select('*').gte('week_start', start).lte('week_start', addDays(start, 7)).then(({ data, error }) => {
+      if (!active) return
+      if (error) setUseUpError(`Could not load use-up ingredients: ${error.message}. The use-up database update may need to be applied.`)
+      else setUseUp(data ?? [])
+      setUseUpLoading(false)
+    })
+    return () => { active = false }
+  }, [start])
+
+  useEffect(() => {
+    if (!scrollToday || loading || loadedStart !== start) return
+    document.querySelector(`[data-date="${now}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    setScrollToday(false)
+  }, [scrollToday, loading, loadedStart, start, now])
+
+  const coveredBy = (item: { week_start: string; ingredient: string }) => entries.filter((entry) =>
+    loadedStart === start && weekStart(entry.plan_date) === item.week_start && entry.status !== 'suggested' &&
+    usesIngredient(recipeById(entry.recipe_id ?? undefined)?.ingredients ?? [], item.ingredient))
+  const pendingFor = (date: string) => useUp.filter((item) => item.week_start === weekStart(date) && !coveredBy(item).length).map((item) => item.ingredient)
+
+  async function addIngredient(event: React.FormEvent) {
+    event.preventDefault()
+    const name = ingredient.trim().toLowerCase()
+    if (!name || savingIngredient) return
+    setSavingIngredient(true)
+    setUseUpError('')
+    const { data, error } = await supabase.from('plan_use_up').insert({ week_start: start, ingredient: name }).select().single()
+    if (error) setUseUpError(error.message)
+    else { setUseUp((items) => [...items, data]); setIngredient('') }
+    setSavingIngredient(false)
+  }
+
+  async function removeIngredient(id: string) {
+    const { error } = await supabase.from('plan_use_up').delete().eq('id', id)
+    if (error) setUseUpError(error.message)
+    else setUseUp((items) => items.filter((item) => item.id !== id))
+  }
+
   const dinnersOn = (d: string) => cookLog.filter((c) => c.cooked_on === d && c.meal === 'dinner')
   const dietTags = tags.filter((t) => t.grp === 'diet')
 
@@ -122,6 +173,7 @@ export default function Plan() {
       if (replaceEntry?.label) used.add(replaceEntry.label.toLowerCase())
       if (useFamiliar && !requiredTags.length) {
         for (const date of openDays) {
+          if (pendingFor(date).length) continue
           const usual = familiarDinners(history, date).find((m) => m.weekdayCount >= 2 && !used.has(m.label.toLowerCase()) && m.last < addDays(now, -6))
           if (usual && (replaceDate || familiarRows.length < Math.ceil(openDays.length / 2))) {
             familiarRows.push({ plan_date: date, meal: 'dinner', label: usual.label, status: 'suggested' })
@@ -130,16 +182,18 @@ export default function Plan() {
         }
       }
       const recipeDays = openDays.filter((d) => !familiarRows.some((r) => r.plan_date === d))
-      const picks = suggestMeals({
-        recipes,
-        stats,
-        tags,
-        alreadyPlanned: exclude,
-        today: now,
-        count: recipeDays.length,
-        requiredTags,
-        adventure,
-      })
+      const picks: string[] = []
+      const suggestedUseUp = new Map<string, string[]>()
+      for (const date of recipeDays) {
+        const week = weekStart(date)
+        const pending = pendingFor(date).filter((item) => !(suggestedUseUp.get(week) ?? []).includes(item))
+        const [id] = suggestMeals({ recipes, stats, tags, alreadyPlanned: [...exclude, ...picks], today: now,
+          count: 1, requiredTags, adventure, useUp: pending })
+        if (!id) break
+        picks.push(id)
+        const lines = recipeById(id)?.ingredients ?? []
+        suggestedUseUp.set(week, [...(suggestedUseUp.get(week) ?? []), ...pending.filter((item) => usesIngredient(lines, item))])
+      }
       const rows = [...familiarRows, ...picks.map((recipe_id, i) => ({ plan_date: recipeDays[i], meal: 'dinner', recipe_id, status: 'suggested' }))]
       if (replaceEntry && !rows.length) {
         setError('You’ve seen all available dinners matching these filters. Change the filters or choose a dish with Edit.')
@@ -204,13 +258,14 @@ export default function Plan() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <h1 className="page-title">Meal plan</h1>
         <div className="flex items-center gap-1">
-          <button className="btn !p-2" onClick={() => setStart(addDays(start, -7))} disabled={busy} aria-label="Previous week">
+          <button className="btn" disabled={busy || savingIngredient} onClick={() => { setStart(weekStart(today())); setScrollToday(true) }}>Today</button>
+          <button className="btn !p-2" onClick={() => setStart(addDays(start, -7))} disabled={busy || savingIngredient} aria-label="Previous week">
             <ChevronLeft size={18} />
           </button>
-          <button className="btn" disabled={busy} onClick={() => setStart(weekStart(today()))}>
+          <button className="btn" disabled={busy || savingIngredient} onClick={() => setStart(weekStart(today()))}>
             This week
           </button>
-          <button className="btn !p-2" onClick={() => setStart(addDays(start, 7))} disabled={busy} aria-label="Next week">
+          <button className="btn !p-2" onClick={() => setStart(addDays(start, 7))} disabled={busy || savingIngredient} aria-label="Next week">
             <ChevronRight size={18} />
           </button>
         </div>
@@ -222,7 +277,7 @@ export default function Plan() {
       {end >= now && (
         <div className="card space-y-3">
           <div className="flex flex-wrap items-center gap-2">
-            <button className="btn-primary" onClick={() => suggest()} disabled={busy || loading || loadedStart !== start}>
+            <button className="btn-primary" onClick={() => suggest()} disabled={busy || loading || useUpLoading || loadedStart !== start}>
               <Sparkles size={16} /> {busy ? 'Saving suggestions…' : suggestedCount ? 'Re-roll suggestions' : 'Suggest dinners'}
             </button>
             <Link to={`/grocery?from=${start}&to=${end}`} className="btn">
@@ -259,6 +314,30 @@ export default function Plan() {
         </div>
       )}
 
+      <section className="card space-y-3" aria-label="Use up this week">
+        <h2 className="font-serif text-xl font-semibold">Use up this week</h2>
+        <p className="text-sm text-muted">Week of {formatDate(start)}. Add ingredients by name, such as swiss chard or yogurt. Suggestions prioritize recipes using one or more. Keep a dish to cross off its ingredients.</p>
+        <form onSubmit={addIngredient} className="flex gap-2">
+          <input aria-label="Ingredient to use up" placeholder="e.g. swiss chard" maxLength={100} value={ingredient} onChange={(event) => setIngredient(event.target.value)} disabled={useUpLoading || savingIngredient} className="min-w-0 flex-1" />
+          <button className="btn" disabled={useUpLoading || savingIngredient || !ingredient.trim()}>Add</button>
+        </form>
+        {useUpLoading && <p role="status" className="text-sm text-muted">Loading ingredients…</p>}
+        {useUpError && <p role="alert" className="text-sm text-red-700">{useUpError}</p>}
+        <ul className="space-y-2">
+          {useUp.filter((item) => item.week_start === start).map((item) => {
+            const covered = coveredBy(item)
+            return <li key={item.id} className="flex items-center gap-2">
+              {covered.length > 0 && <Check size={16} className="text-sage" />}
+              <span className={covered.length ? 'text-muted line-through' : ''}>{item.ingredient}</span>
+              {!covered.length && !recipes.some((recipe) => recipe.status === 'ready' && usesIngredient(recipe.ingredients, item.ingredient)) && <span className="text-xs text-muted">No matching recipes in your box yet</span>}
+              {covered.length > 0 && <span className="text-xs text-muted">Planned: {covered.map((entry) => recipeById(entry.recipe_id ?? undefined)?.title).join(', ')}</span>}
+              <button className="btn-ghost ml-auto !p-2" aria-label={`Remove ${item.ingredient}`} onClick={() => removeIngredient(item.id)}><Trash2 size={14} /></button>
+            </li>
+          })}
+        </ul>
+        {!useUpLoading && !useUp.some((item) => item.week_start === start) && <p className="text-sm text-muted">No ingredients added for this week.</p>}
+      </section>
+
       <div className="flex flex-wrap gap-2">
         <button className="btn" onClick={() => { setEventDate(undefined); setEventEditor(null) }}>Add calendar event</button>
         <button className="btn" onClick={() => setManageEvents(true)}>Manage events</button>
@@ -277,7 +356,7 @@ export default function Plan() {
             <li
               key={d}
               data-date={d}
-              className={`card !p-3 ${index === 7 ? '!mt-6' : ''} ${d === now ? 'ring-2 ring-accent/40' : ''} ${
+              className={`card scroll-mt-4 !p-3 ${index === 7 ? '!mt-6' : ''} ${d === now ? 'ring-2 ring-accent/40' : ''} ${
                 dayEntries.some((e) => e.status === 'suggested') ? 'border border-dashed border-accent/50 !bg-white/60' : ''
               }`}
             >
@@ -304,6 +383,8 @@ export default function Plan() {
                         <button className="btn !p-2" aria-label="Keep dish" disabled={busy} onClick={() => setStatus(entry, 'planned')}><Check size={16} /></button>
                         <button className="btn !p-2" aria-label="Suggest another dish" disabled={busy} onClick={() => suggest(entry)}><RefreshCw size={16} /></button>
                       </>}
+                      {recipe && <Link className="btn !px-2 text-xs" to={`/r/${recipe.id}/cook`}>Cook</Link>}
+                      {recipe && <p className="text-xs text-muted">{useUp.filter((item) => item.week_start === weekStart(d) && usesIngredient(recipe.ingredients, item.ingredient)).map((item) => item.ingredient).join(' · ')}</p>}
                       {recipe && entry.status === 'planned' && d <= now && <button className="btn !px-2 text-xs" onClick={() => setLogging(entry)}>Made it</button>}
                       <button className="btn-ghost !p-2" aria-label="Edit dish" disabled={busy} onClick={() => { setEditingEntry(entry); setPicking(d) }}>Edit</button>
                       {entry.status !== 'cooked' && <button className="btn-ghost !p-2" aria-label="Move dish to another day" disabled={busy} onClick={() => setMoving([entry])}>Move</button>}
