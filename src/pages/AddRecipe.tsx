@@ -91,7 +91,7 @@ function FromLink() {
         }, tags)
         if (saved.status === 'needs_transcription') {
           setQueuedId(saved.id)
-          setNotice('Link saved. Open the recipe website and copy its recipe text, then paste it below to finish importing here.')
+          setNotice('Link saved to the import queue. You can also open the recipe website and copy its recipe text, then paste it below to finish importing here.')
           setPastedUrl(submittedUrl)
           setPasting(true)
         } else {
@@ -132,9 +132,10 @@ function FromLink() {
           <span>Paste a link to a recipe</span>
           <input type="url" required disabled={busy} value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://…" />
         </label>
-        {existing && (
+        {existing && existing.id !== queuedId && (
           <p className="text-sm text-amber-800">
-            You already have this one: <Link to={`/r/${existing.id}`} className="underline">{existing.title}</Link>
+            {existing.status === 'needs_transcription' ? 'This link is waiting in the import queue: ' : 'You already have this one: '}
+            <Link to={`/r/${existing.id}`} className="underline">{existing.title}</Link>
           </p>
         )}
         <button className="btn-primary" disabled={busy}>
