@@ -104,3 +104,10 @@ respecting diet filters and the usual dinner eligibility rules. A kept or manual
 added recipe crosses off matching ingredients for its scheduled week; removing,
 replacing, or moving it out of the week restores them. Crossing off means planned,
 not necessarily that all of the ingredient has been eaten. Each week has its own list.
+
+Apply `supabase/migrations/0005_use_up_completion.sql` before deploying the date-aware
+use-up list. New ingredients only match dinners on or after their local added date
+within their selected week. Existing ingredients retain week-wide matching because
+their original added dates were not recorded. Owners can also check an ingredient
+off manually and undo that manual check; a matching planned dinner keeps it checked
+until that dinner is removed or moved. Skipped dinners do not cross off ingredients.

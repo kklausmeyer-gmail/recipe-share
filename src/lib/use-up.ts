@@ -1,4 +1,19 @@
 import { isHeader, parseIngredient } from './ingredients'
+import { weekStart } from './dates'
+import type { PlanEntry } from './types'
+
+export interface UseUpItem {
+  id: string
+  week_start: string
+  ingredient: string
+  added_on: string
+  completed: boolean
+}
+
+export function canCoverIngredient(item: UseUpItem, entry: PlanEntry): boolean {
+  return weekStart(entry.plan_date) === item.week_start && entry.plan_date >= item.added_on &&
+    (entry.status === 'planned' || entry.status === 'cooked')
+}
 
 const singular = (word: string) => {
   if (word.endsWith('oes')) return word.slice(0, -2)

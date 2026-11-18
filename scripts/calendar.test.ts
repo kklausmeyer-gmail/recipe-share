@@ -35,6 +35,16 @@ const expanded = visiblePlanDays('2026-10-26', true)
 assert.equal(collapsed.length, 7)
 assert.equal(expanded.length, 14)
 assert.equal(expanded[13], '2026-11-08')
+assert.deepEqual(visiblePlanDays('2026-10-26', false, '2026-10-27'), [
+  '2026-10-27', '2026-10-28', '2026-10-29', '2026-10-30', '2026-10-31', '2026-11-01',
+])
+const wednesday = visiblePlanDays('2026-10-26', true, '2026-10-28')
+assert.equal(wednesday.length, 12)
+assert.equal(wednesday[0], '2026-10-28')
+assert.equal(wednesday[5], '2026-11-02')
+assert.equal(wednesday[11], '2026-11-08')
+assert.deepEqual(visiblePlanDays('2026-10-19', false, '2026-10-28'), visiblePlanDays('2026-10-19', false))
+assert.equal(visiblePlanDays('2026-10-26', true, '2026-11-01').length, 8)
 const entries: PlanEntry[] = [
   { id: 'a', plan_date: '2026-10-31', meal: 'dinner', label: 'Dinner', recipe_id: null, status: 'planned' },
   { id: 'b', plan_date: '2026-11-02', meal: 'dinner', label: 'Suggestion', recipe_id: null, status: 'suggested' },

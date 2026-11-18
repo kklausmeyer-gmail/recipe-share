@@ -1,7 +1,16 @@
 import assert from 'node:assert/strict'
-import { usesIngredient } from '../src/lib/use-up.ts'
+import { canCoverIngredient, usesIngredient, type UseUpItem } from '../src/lib/use-up.ts'
 import { suggestMeals } from '../src/lib/suggest.ts'
-import type { Recipe } from '../src/lib/types.ts'
+import type { PlanEntry, Recipe } from '../src/lib/types.ts'
+
+const ingredient: UseUpItem = { id: 'yogurt', ingredient: 'yogurt', week_start: '2026-11-09', added_on: '2026-11-10', completed: false }
+const dinner: PlanEntry = { id: 'dinner', plan_date: '2026-11-09', meal: 'dinner', recipe_id: 'yogurt', label: null, status: 'planned' }
+assert.equal(canCoverIngredient(ingredient, dinner), false)
+assert.equal(canCoverIngredient(ingredient, { ...dinner, plan_date: '2026-11-10' }), true)
+assert.equal(canCoverIngredient(ingredient, { ...dinner, plan_date: '2026-11-15', status: 'cooked' }), true)
+assert.equal(canCoverIngredient(ingredient, { ...dinner, plan_date: '2026-11-16' }), false)
+assert.equal(canCoverIngredient(ingredient, { ...dinner, plan_date: '2026-11-10', status: 'suggested' }), false)
+assert.equal(canCoverIngredient(ingredient, { ...dinner, plan_date: '2026-11-10', status: 'skipped' }), false)
 
 assert.ok(usesIngredient(['1 cup Greek yogurt', '2 bunches Swiss chard, chopped'], 'swiss chard'))
 assert.ok(usesIngredient(['2 tomatoes, diced'], 'tomato'))

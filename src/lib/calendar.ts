@@ -31,8 +31,9 @@ export function validateCalendarEvent(event: CalendarEventInput): string | null 
   return null
 }
 
-export function visiblePlanDays(start: string, expanded: boolean): string[] {
+export function visiblePlanDays(start: string, expanded: boolean, now?: string): string[] {
   return Array.from({ length: expanded ? 14 : 7 }, (_, i) => addDays(start, i))
+    .filter((date) => !now || start !== weekStart(now) || date >= now)
 }
 
 export function shouldExpandNextWeek(start: string, now: string): boolean {
