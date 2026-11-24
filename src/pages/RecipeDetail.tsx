@@ -18,6 +18,7 @@ import EditableNote from '../components/EditableNote'
 import Lightbox from '../components/Lightbox'
 import LogCookModal from '../components/LogCookModal'
 import Modal from '../components/Modal'
+import NotesSummary from '../components/NotesSummary'
 import Stars from '../components/Stars'
 import StoredImage from '../components/StoredImage'
 import TagChip from '../components/TagChip'
@@ -241,6 +242,8 @@ export default function RecipeDetail() {
           </div>
         </section>
       )}
+
+      <NotesSummary notes={notes} history={history} nameOf={nameOf} className="mt-8" />
 
       <div className="mt-8 grid gap-8 md:grid-cols-[1fr_1.4fr]">
         <section>
