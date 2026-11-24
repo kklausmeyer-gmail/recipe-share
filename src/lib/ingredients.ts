@@ -104,6 +104,8 @@ export function parseIngredient(raw: string): ParsedIngredient {
       break
     }
   }
+  // "[2 oz]" alternate measurements are for display; the grocery list uses the main one.
+  rest = rest.replace(ALT_RE, ' ').replace(/\s+/g, ' ').trim()
   rest = rest.replace(/^of\s+/i, '')
   let note: string | null = null
   const comma = rest.indexOf(',')
@@ -131,16 +133,30 @@ export function formatQty(n: number): string {
   return whole ? `${whole}${best[1]}` : best[1]
 }
 
-/** Rewrites an ingredient line with its quantity multiplied by `factor`. */
-export function scaleLine(raw: string, factor: number): string {
-  if (factor === 1 || isHeader(raw)) return raw
-  const m = raw.trim().match(QTY_RE)
-  if (!m) return raw
+function scaleQty(text: string, factor: number): string {
+  const m = text.match(QTY_RE)
+  if (!m) return text
   const a = parseNumber(m[1])
-  if (a == null) return raw
+  if (a == null) return text
   const b = m[2] ? parseNumber(m[2]) : null
   const q = formatQty(a * factor) + (b != null ? `–${formatQty(b * factor)}` : '')
-  return `${q} ${raw.trim().slice(m[0].length)}`
+  return `${q} ${text.slice(m[0].length)}`.trimEnd()
+}
+
+// An alternate measurement in square brackets: "1 Tbsp [14 g] butter".
+const ALT_RE = /\[([^\]]*)\]/g
+
+/**
+ * Rewrites an ingredient line with its quantity multiplied by `factor`.
+ * Alternate measurements in square brackets scale too: "1 Tbsp [2 oz] butter" ×2 -> "2 Tbsp [4 oz] butter".
+ * Parentheses are left alone, since they usually hold a package size ("1 (14-oz) can").
+ */
+export function scaleLine(raw: string, factor: number): string {
+  if (factor === 1 || isHeader(raw)) return raw
+  return scaleQty(raw.trim(), factor).replace(ALT_RE, (_, inner: string) => {
+    const lead = inner.match(/^\s*/)![0]
+    return `[${lead}${scaleQty(inner.slice(lead.length), factor)}]`
+  })
 }
 
 /** First number in a servings string ("Serves 4 to 6" -> 4). */

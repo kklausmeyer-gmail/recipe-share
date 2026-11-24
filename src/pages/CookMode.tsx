@@ -2,8 +2,11 @@ import { Check, ChevronLeft, ChevronRight, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import LogCookModal from '../components/LogCookModal'
+import NotesSummary from '../components/NotesSummary'
 import { headerText, isHeader, scaleLine } from '../lib/ingredients'
 import { useData } from '../lib/store'
+import { supabase } from '../lib/supabase'
+import type { Note } from '../lib/types'
 
 /** Distraction-free cooking: one big step at a time, the screen stays on. */
 export default function CookMode() {
@@ -11,8 +14,23 @@ export default function CookMode() {
   const [params] = useSearchParams()
   const factor = Number(params.get('x')) || 1
   const navigate = useNavigate()
-  const { recipeById } = useData()
+  const { recipeById, cookLog, nameOf } = useData()
   const recipe = recipeById(id)
+  const [notes, setNotes] = useState<Note[]>([])
+  const history = useMemo(
+    () => cookLog.filter((c) => c.recipe_id === id).sort((a, b) => b.cooked_on.localeCompare(a.cooked_on)),
+    [cookLog, id],
+  )
+
+  useEffect(() => {
+    if (!id) return
+    supabase
+      .from('recipe_notes')
+      .select('*')
+      .eq('recipe_id', id)
+      .order('created_at', { ascending: false })
+      .then(({ data }) => setNotes((data as Note[]) ?? []))
+  }, [id])
 
   const steps = useMemo(() => recipe?.steps.filter((s) => !isHeader(s)) ?? [], [recipe])
   const [step, setStep] = useState(-1) // -1 = ingredients checklist
@@ -104,6 +122,7 @@ export default function CookMode() {
           <p className="font-serif text-xl leading-relaxed md:text-2xl">{steps[step]}</p>
         </section>}
         <section aria-label="Ingredients" className={`min-h-0 overflow-y-auto overscroll-contain px-5 py-4 ${step >= 0 ? 'border-t border-line md:border-l md:border-t-0' : 'mx-auto w-full max-w-2xl'}`}>
+          {step === -1 && <NotesSummary notes={notes} history={history} nameOf={nameOf} className="mb-4" />}
           <h2 className="mb-2 font-serif text-2xl font-semibold">{step === -1 ? 'Gather ingredients' : 'Ingredients'}</h2>
           {factor !== 1 && <p className="mb-2 text-sm text-muted">Scaled ×{Math.round(factor * 100) / 100}</p>}
           {ingredientList}

@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import RecipeCard from '../components/RecipeCard'
 import TagChip from '../components/TagChip'
+import TodayDinner from '../components/TodayDinner'
 import { useData } from '../lib/store'
 import type { Recipe } from '../lib/types'
 
@@ -124,6 +125,8 @@ export default function Browse() {
           {results.length} of {recipes.length}
         </span>
       </div>
+
+      <TodayDinner />
 
       <div className="sticky top-0 z-20 -mx-4 space-y-3 bg-cream/95 px-4 pb-3 pt-2 backdrop-blur md:top-[57px] md:-mx-6 md:px-6">
         <div className="flex gap-2">

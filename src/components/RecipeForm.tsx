@@ -119,7 +119,7 @@ export default function RecipeForm({ initial, submitLabel, onSubmit, children }:
         </label>
       </div>
       <label className="field">
-        <span>Ingredients, one per line. Start a line with # for a section heading (e.g. #Sauce).</span>
+        <span>Ingredients, one per line. Start a line with # for a section heading (e.g. #Sauce). Put an alternate measurement in square brackets, like 1 Tbsp [14 g] butter, and it scales with the servings too.</span>
         <textarea rows={10} value={ingredients} onChange={(e) => setIngredients(e.target.value)} className="font-mono text-sm" />
       </label>
       <label className="field">
